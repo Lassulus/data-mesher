@@ -1,10 +1,10 @@
 import argparse
-import http.client
 import ipaddress
 import json
 import sys
 from datetime import datetime
 
+from nacl.encoding import Base64Encoder
 from nacl.signing import SigningKey, VerifyKey
 
 """
@@ -47,12 +47,18 @@ from nacl.signing import SigningKey, VerifyKey
 }
 """
 
+
 class Hostname:
     hostname: str
     signedAt: datetime | None
     signature: str | None
 
-    def __init__(self, hostname: str, signedAt: datetime, signature: str) -> None:
+    def __init__(
+        self,
+        hostname: str,
+        signedAt: datetime | None = None,
+        signature: str | None = None,
+    ) -> None:
         self.hostname = hostname
         self.signedAt = signedAt
         self.signature = signature
@@ -98,7 +104,10 @@ class Hostname:
         Sign the content of the host with the given signingKey and update the signature.
         """
         self.signedAt = datetime.now()
-        self.signature = signingKey.sign(json.dumps(self.data_to_sign()).encode()).signature
+        self.signature = signingKey.sign(
+            json.dumps(self.data_to_sign()).encode(), encoder=Base64Encoder
+        ).decode()
+
 
 class Host:
     """
@@ -109,6 +118,7 @@ class Host:
     The signature is used to verify the content of the host, it is signed by the host itself.
     The adminSignature is used to verify that the host is part of the network, it is signed by on of the hostSigningKeys.
     """
+
     ip: ipaddress.IPv6Address
     port: int
     publicKey: VerifyKey | None
@@ -132,13 +142,17 @@ class Host:
         self.hostnames = hostnames
         self.signature = signature
 
-    def data_to_sign(self) -> dict[str, str | int]:
-        return dict(sorted({
-            "port": self.port,
-            "publicKey": self.publicKey,
-            "lastSeen": int(self.lastSeen.timestamp()),
-            "hostnames": [ h.__json__ for h in self.hostnames ],
-        }.items()))
+    def data_to_sign(self) -> dict[str, str | int | list]:
+        if self.publicKey:
+            data: dict[str, str | int | list] = {
+                "port": self.port,
+                "publicKey": self.publicKey.encode(Base64Encoder).decode(),
+                "lastSeen": int(self.lastSeen.timestamp()),
+                "hostnames": [h.__json__ for h in self.hostnames],
+            }
+        else:
+            raise ValueError("No publicKey set")
+        return dict(sorted(data.items()))
 
     def __json__(self) -> dict:
         data = self.data_to_sign()
@@ -148,7 +162,9 @@ class Host:
 
     def verify(self) -> bool:
         if self.publicKey:
-            return self.publicKey.verify(json.dumps(self.data_to_sign()).encode(), self.signature)
+            return self.publicKey.verify(
+                json.dumps(self.data_to_sign()).encode(), self.signature
+            )
         return False
 
     def merge(self, other: "Host") -> None:
@@ -168,7 +184,9 @@ class Host:
         Sign the content of the host with the given signingKey and return the signature.
         """
         self.lastSeen = datetime.now()
-        self.signature = signingKey.sign(json.dumps(self.data_to_sign()).encode()).signature
+        self.signature = signingKey.sign(
+            json.dumps(self.data_to_sign()).encode()
+        ).signature
 
 
 class Network:
@@ -199,20 +217,28 @@ class Network:
         self.hosts = hosts
 
     def __json__(self) -> dict:
-        settings = dict(sorted({
-            "lastUpdate": int(self.lastUpdate.timestamp()),
-            "tld": self.tld,
-            "public": self.public,
-            "hostSigningKeys": [ k.encode() for k in self.hostSigningKeys ],
-            "bannedKeys": self.bannedKeys,
-            "hostnameOverrides": self.hostnameOverrides,
-        }.items()))
-        hosts = { str(ip): host.__json__() for ip, host in sorted(self.hosts.items()) }
+        settings = dict(
+            sorted(
+                {
+                    "lastUpdate": int(self.lastUpdate.timestamp()),
+                    "tld": self.tld,
+                    "public": self.public,
+                    "hostSigningKeys": [k.encode() for k in self.hostSigningKeys],
+                    "bannedKeys": self.bannedKeys,
+                    "hostnameOverrides": self.hostnameOverrides,
+                }.items()
+            )
+        )
+        hosts = {str(ip): host.__json__() for ip, host in sorted(self.hosts.items())}
         return {
             "hosts": hosts,
             "settings": settings,
         }
 
+
 def main(args: list[str] = sys.argv[1:]) -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("command", choices=["create", "add-host", "add-hostname", "add-host-signing-key"])
+    parser.add_argument(
+        "command",
+        choices=["create", "add-host", "add-hostname", "add-host-signing-key"],
+    )
