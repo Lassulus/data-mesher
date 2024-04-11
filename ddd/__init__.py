@@ -51,33 +51,33 @@ from nacl.signing import SigningKey, VerifyKey
 class Hostname:
     hostname: str
     signedAt: datetime | None
-    signature: str | None
+    signature: bytes | None
 
     def __init__(
         self,
         hostname: str,
         signedAt: datetime | None = None,
-        signature: str | None = None,
+        signature: bytes | None = None,
     ) -> None:
         self.hostname = hostname
         self.signedAt = signedAt
         self.signature = signature
 
-    def data_to_sign(self) -> dict[str, str | int]:
-        data: dict[str, str | int] = {
+    def data_to_sign(self) -> dict[str, bytes | str | int]:
+        data: dict[str, bytes | str | int] = {
             "hostname": self.hostname,
         }
         if self.signedAt and self.signature:
             data["signedAt"] = int(self.signedAt.timestamp())
         return dict(sorted(data.items()))
 
-    def __json__(self) -> dict[str, str | int]:
+    def __json__(self) -> dict[str, bytes | str | int]:
         data = self.data_to_sign()
         if self.signedAt and self.signature:
             data["signature"] = self.signature
         return dict(sorted(data.items()))
 
-    def update_from_data(self, hostname: str, signedAt: int, signature: str) -> None:
+    def update_from_data(self, hostname: str, signedAt: int, signature: bytes) -> None:
         self.hostname = hostname
         self.signedAt = datetime.fromtimestamp(signedAt)
         self.signature = signature
@@ -106,7 +106,7 @@ class Hostname:
         self.signedAt = datetime.now()
         self.signature = signingKey.sign(
             json.dumps(self.data_to_sign()).encode(), encoder=Base64Encoder
-        ).decode()
+        )
 
 
 class Host:
@@ -124,7 +124,7 @@ class Host:
     publicKey: VerifyKey | None
     lastSeen: datetime
     hostnames: list[Hostname]  # TODO proper class
-    signature: str | None
+    signature: bytes | None
 
     def __init__(
         self,
@@ -133,7 +133,7 @@ class Host:
         publicKey: VerifyKey | None = None,
         lastSeen: datetime = datetime.now(),
         hostnames: list[Hostname] = [],
-        signature: str | None = None,
+        signature: bytes | None = None,
     ) -> None:
         self.ip = ip
         self.port = port
@@ -142,7 +142,7 @@ class Host:
         self.hostnames = hostnames
         self.signature = signature
 
-    def data_to_sign(self) -> dict[str, str | int | list]:
+    def data_to_sign(self) -> dict[str, str | bytes | int | list]:
         if self.publicKey:
             data: dict[str, str | int | list] = {
                 "port": self.port,
@@ -161,9 +161,9 @@ class Host:
         return dict(sorted(data.items()))
 
     def verify(self) -> bool:
-        if self.publicKey:
-            return self.publicKey.verify(
-                json.dumps(self.data_to_sign()).encode(), self.signature
+        if self.publicKey and self.signature:
+            return self.publicKey.verify(self.signature) == json.dumps(
+                self.data_to_sign()
             )
         return False
 
@@ -185,8 +185,9 @@ class Host:
         """
         self.lastSeen = datetime.now()
         self.signature = signingKey.sign(
-            json.dumps(self.data_to_sign()).encode()
-        ).signature
+            json.dumps(self.data_to_sign()).encode(),
+            encoder=Base64Encoder,
+        )
 
 
 class Network:
