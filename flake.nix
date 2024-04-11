@@ -22,8 +22,8 @@
         "aarch64-darwin"
       ];
       perSystem = { config, pkgs, self', ... }: {
-        packages.ddd = pkgs.callPackage ./. { };
-        packages.default = config.packages.ddd;
+        packages.data-mesher = pkgs.callPackage ./. { };
+        packages.default = config.packages.data-mesher;
 
         devShells.default = self'.packages.default.overrideAttrs (old: {
           nativeBuildInputs = old.nativeBuildInputs ++ [ pkgs.python3Packages.ipython ];

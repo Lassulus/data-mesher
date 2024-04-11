@@ -1,4 +1,4 @@
-# ddd (distributed data daemon)
+# data-mesher
 
 This daemon is used to exchange data in mesh based networks where every peer can talk to another peer directly.
 It should securely exchange information signed by the sender.

@@ -3,7 +3,7 @@
 
 
 pkgs.python3.pkgs.buildPythonApplication {
-  pname = "ddd";
+  pname = "data-mesher";
   version = "1.0.0";
   src = ./.;
   format = "pyproject";
@@ -17,7 +17,7 @@ pkgs.python3.pkgs.buildPythonApplication {
     pkgs.nix-prefetch-git
   ];
   checkPhase = ''
-    PYTHONPATH= $out/bin/ddd --help
+    PYTHONPATH= $out/bin/data-mesher --help
   '';
   shellHook = ''
     # workaround because `python setup.py develop` breaks for me

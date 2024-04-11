@@ -3,18 +3,18 @@ from ipaddress import IPv6Address
 
 from nacl.signing import SigningKey
 
-import ddd
+import data_mesher
 
 a_key = SigningKey.generate()
 b_key = SigningKey.generate()
 
-peerA = ddd.Host(
+peerA = data_mesher.Host(
     ip=IPv6Address("42::1"),
     port=7331,
     publicKey=a_key.verify_key,
-    hostnames=[ddd.Hostname("a")],
+    hostnames=[data_mesher.Hostname("a")],
 )
-networkA = ddd.Network(
+networkA = data_mesher.Network(
     lastUpdate=datetime.now(),
     tld="test",
     public=True,
@@ -22,13 +22,13 @@ networkA = ddd.Network(
     hosts={peerA.ip: peerA},
 )
 
-peerB = ddd.Host(
+peerB = data_mesher.Host(
     ip=IPv6Address("42::2"),
     port=7331,
     publicKey=a_key.verify_key,
-    hostnames=[ddd.Hostname("a")],
+    hostnames=[data_mesher.Hostname("a")],
 )
-networkB = ddd.Network(
+networkB = data_mesher.Network(
     lastUpdate=datetime.now(),
     tld="test",
     public=True,
