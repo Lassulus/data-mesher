@@ -14,7 +14,7 @@ def test_merge() -> None:
         ip=IPv6Address("42::1"),
         port=7331,
         publicKey=a_key.verify_key,
-        hostnames=[data_mesher.Hostname("a")],
+        hostnames={ "a": data_mesher.Hostname("a")},
     )
     peerA.update_signature(a_key)
     networkA = data_mesher.Network(
@@ -29,7 +29,7 @@ def test_merge() -> None:
         ip=IPv6Address("42::2"),
         port=7331,
         publicKey=b_key.verify_key,
-        hostnames=[data_mesher.Hostname("a")],
+        hostnames={ "b": data_mesher.Hostname("b")},
     )
     peerB.update_signature(b_key)
     networkB = data_mesher.Network(

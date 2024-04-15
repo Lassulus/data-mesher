@@ -71,18 +71,14 @@ class Hostname:
             data["signed_at"] = int(self.signed_at.timestamp())
         return dict(sorted(data.items()))
 
-    def __json__(self) -> dict[str, bytes | str | int]:
-        data = self.data_to_sign()
+    def __json__(self) -> dict[str, bytes | int]:
+        data: dict[str, bytes | int] = {}
         if self.signed_at and self.signature:
             data["signature"] = self.signature
+            data["signed_at"] = int(self.signed_at.timestamp())
         return dict(sorted(data.items()))
 
-    def update_from_data(self, hostname: str, signedAt: int, signature: bytes) -> None:
-        self.hostname = hostname
-        self.signedAt = datetime.fromtimestamp(signedAt)
-        self.signature = signature
-
-    def check_signature(self, pubkeys: list[VerifyKey]) -> bool:
+    def verify_signature(self, pubkeys: list[VerifyKey]) -> bool:
         for pubkey in pubkeys:
             if pubkey.verify(json.dumps(self.data_to_sign()).encode(), self.signature):
                 return True
@@ -123,7 +119,7 @@ class Host:
     port: int
     publicKey: VerifyKey | None
     lastSeen: datetime
-    hostnames: list[Hostname]  # TODO proper class
+    hostnames: dict[str, Hostname]
     signature: bytes | None
 
     def __init__(
@@ -132,7 +128,7 @@ class Host:
         port: int,
         publicKey: VerifyKey | None = None,
         lastSeen: datetime = datetime.now(),
-        hostnames: list[Hostname] = [],
+        hostnames: dict[str, Hostname] = {},
         signature: bytes | None = None,
     ) -> None:
         self.ip = ip
@@ -142,13 +138,17 @@ class Host:
         self.hostnames = hostnames
         self.signature = signature
 
-    def data_to_sign(self) -> dict[str, str | bytes | int | list]:
+    def data_to_sign(self) -> dict[str, str | bytes | int | dict[str, dict[str, int | bytes]]]:
         if self.publicKey:
-            data: dict[str, str | int | list] = {
+            hostnames: dict[str, dict[str, int | bytes]] = {}
+            for hostname in self.hostnames:
+                hostnames[hostname] = self.hostnames[hostname].__json__()
+            hostnames = dict(sorted(hostnames.items()))
+            data: dict[str, str | int | dict[str, dict[ str, int | bytes ]]] = {
                 "port": self.port,
                 "publicKey": self.publicKey.encode(Base64Encoder).decode(),
                 "lastSeen": int(self.lastSeen.timestamp()),
-                "hostnames": [h.data_to_sign() for h in self.hostnames],
+                "hostnames": hostnames,
             }
         else:
             raise ValueError("No publicKey set")
@@ -174,9 +174,10 @@ class Host:
                 self.port = other.port
                 self.publicKey = other.publicKey
                 self.lastSeen = other.lastSeen
-                # TODO better merging for hostnames
-                self.hostnames = other.hostnames
                 self.signature = other.signature
+                # TODO better merging for hostnames
+                for hostname in other.hostnames:
+                    self.hostnames = other.hostnames
             else:
                 print("Invalid signature")
 
