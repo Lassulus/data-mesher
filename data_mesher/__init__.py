@@ -148,7 +148,7 @@ class Host:
                 "port": self.port,
                 "publicKey": self.publicKey.encode(Base64Encoder).decode(),
                 "lastSeen": int(self.lastSeen.timestamp()),
-                "hostnames": [h.__json__ for h in self.hostnames],
+                "hostnames": [h.data_to_sign() for h in self.hostnames],
             }
         else:
             raise ValueError("No publicKey set")
@@ -162,8 +162,9 @@ class Host:
 
     def verify(self) -> bool:
         if self.publicKey and self.signature:
-            return self.publicKey.verify(self.signature) == json.dumps(
-                self.data_to_sign()
+            return (
+                self.publicKey.verify(self.signature, encoder=Base64Encoder)
+                == json.dumps(self.data_to_sign()).encode()
             )
         return False
 
@@ -235,6 +236,22 @@ class Network:
             "hosts": hosts,
             "settings": settings,
         }
+
+    def merge(self, other: "Network") -> None:
+        if other.lastUpdate > self.lastUpdate:
+            self.tld = other.tld
+            self.public = other.public
+            self.hostSigningKeys = other.hostSigningKeys
+            self.bannedKeys = other.bannedKeys
+            self.hostnameOverrides = other.hostnameOverrides
+        for host in other.hosts:
+            if host in self.hosts:
+                self.hosts[host].merge(other.hosts[host])
+            else:
+                if other.hosts[host].verify():
+                    self.hosts[host] = other.hosts[host]
+
+        # TODO decay hosts
 
 
 def main(args: list[str] = sys.argv[1:]) -> None:

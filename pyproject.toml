@@ -24,6 +24,13 @@ Homepage = "https://github.com/lassulus/data-mesher"
 [project.scripts]
 data-mesher = "data_mesher:main"
 
+[tool.pytest.ini_options]
+testpaths = "tests"
+faulthandler_timeout = 60
+log_level = "DEBUG"
+log_format = "%(levelname)s: %(message)s\n       %(pathname)s:%(lineno)d::%(funcName)s"
+# addopts = "--cov . --cov-report term --cov-report html:.reports/html --no-cov-on-fail --durations 5 --color=yes --new-first" # Add --pdb for debugging
+
 [tool.ruff]
 target-version = "py311"
 line-length = 88
