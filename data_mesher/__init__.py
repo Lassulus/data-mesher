@@ -31,7 +31,7 @@ from nacl.signing import SigningKey, VerifyKey
         "publicKey": "asdasduhiuahsidua", # since we can't deduce the public key from the ip address (but we can verify it), we need to transmit it also
         "lastSeen": "2024-02-21T06:17:27+01:00", # when this host was last seen, this is used for connection retry or decaying the host
         "hostnames": [
-          { "hostname": "ignavia", "signedAt": "8768768778", "signature": "asdasdasdad" } # signature is used in case of conflict, is signed by the networks adminKey or any additionalHostSigningKeys
+          { "hostname": "ignavia", "signed_at": "8768768778", "signature": "asdasdasdad" } # signature is used in case of conflict, is signed by the networks adminKey or any additionalHostSigningKeys
           # if multiple hosts claim the same hostnames the earlier signing date wins
           # if there are multiple signatures for the same hostnames the oldest one wins, if 2 have the same time, the lexicographically first signature wins
           { "hostname": "wiki-backup" } # hostnames which are not signed yet don't have a signature and a timestamp, other peers will only accept them if they don't conflict with another existing hostname
@@ -50,30 +50,30 @@ from nacl.signing import SigningKey, VerifyKey
 
 class Hostname:
     hostname: str
-    signedAt: datetime | None
     signature: bytes | None
+    signed_at: datetime | None
 
     def __init__(
         self,
         hostname: str,
-        signedAt: datetime | None = None,
+        signed_at: datetime | None = None,
         signature: bytes | None = None,
     ) -> None:
         self.hostname = hostname
-        self.signedAt = signedAt
+        self.signed_at = signed_at
         self.signature = signature
 
     def data_to_sign(self) -> dict[str, bytes | str | int]:
         data: dict[str, bytes | str | int] = {
             "hostname": self.hostname,
         }
-        if self.signedAt and self.signature:
-            data["signedAt"] = int(self.signedAt.timestamp())
+        if self.signed_at and self.signature:
+            data["signed_at"] = int(self.signed_at.timestamp())
         return dict(sorted(data.items()))
 
     def __json__(self) -> dict[str, bytes | str | int]:
         data = self.data_to_sign()
-        if self.signedAt and self.signature:
+        if self.signed_at and self.signature:
             data["signature"] = self.signature
         return dict(sorted(data.items()))
 
@@ -89,21 +89,21 @@ class Hostname:
         return False
 
     def merge(self, other: "Hostname") -> None:
-        if self.signedAt and other.signedAt:
-            if self.signedAt < other.signedAt:
+        if self.signed_at and other.signed_at:
+            if self.signed_at < other.signed_at:
                 self.hostname = other.hostname
-                self.signedAt = other.signedAt
+                self.signed_at = other.signed_at
                 self.signature = other.signature
-        elif other.signedAt:
+        elif other.signed_at:
             self.hostname = other.hostname
-            self.signedAt = other.signedAt
+            self.signed_at = other.signed_at
             self.signature = other.signature
 
     def update_signature(self, signingKey: SigningKey) -> None:
         """
         Sign the content of the host with the given signingKey and update the signature.
         """
-        self.signedAt = datetime.now()
+        self.signed_at = datetime.now()
         self.signature = signingKey.sign(
             json.dumps(self.data_to_sign()).encode(), encoder=Base64Encoder
         )
