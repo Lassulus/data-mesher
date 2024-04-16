@@ -1,8 +1,11 @@
 import argparse
 import ipaddress
 import json
+import shutil
 import sys
 from datetime import datetime
+from pathlib import Path
+from tempfile import NamedTemporaryFile
 
 from nacl.encoding import Base64Encoder
 from nacl.signing import SigningKey, VerifyKey
@@ -47,6 +50,8 @@ from nacl.signing import SigningKey, VerifyKey
 }
 """
 
+Hostname_json_type = dict[str, str | int]
+
 
 class Hostname:
     hostname: str
@@ -63,18 +68,18 @@ class Hostname:
         self.signed_at = signed_at
         self.signature = signature
 
-    def data_to_sign(self) -> dict[str, bytes | str | int]:
-        data: dict[str, bytes | str | int] = {
+    def data_to_sign(self) -> dict[str, str | int]:
+        data: dict[str, str | int] = {
             "hostname": self.hostname,
         }
         if self.signed_at and self.signature:
             data["signed_at"] = int(self.signed_at.timestamp())
         return dict(sorted(data.items()))
 
-    def __json__(self) -> dict[str, bytes | int]:
-        data: dict[str, bytes | int] = {}
+    def __json__(self) -> Hostname_json_type:
+        data: dict[str, str | int] = {}
         if self.signed_at and self.signature:
-            data["signature"] = self.signature
+            data["signature"] = self.signature.decode()
             data["signed_at"] = int(self.signed_at.timestamp())
         return dict(sorted(data.items()))
 
@@ -84,25 +89,18 @@ class Hostname:
                 return True
         return False
 
-    def merge(self, other: "Hostname") -> None:
-        if self.signed_at and other.signed_at:
-            if self.signed_at < other.signed_at:
-                self.hostname = other.hostname
-                self.signed_at = other.signed_at
-                self.signature = other.signature
-        elif other.signed_at:
-            self.hostname = other.hostname
-            self.signed_at = other.signed_at
-            self.signature = other.signature
-
     def update_signature(self, signingKey: SigningKey) -> None:
         """
         Sign the content of the host with the given signingKey and update the signature.
         """
         self.signed_at = datetime.now()
         self.signature = signingKey.sign(
-            json.dumps(self.data_to_sign()).encode(), encoder=Base64Encoder
+            json.dumps(self.data_to_sign()).encode(),
+            encoder=Base64Encoder,
         )
+
+
+Host_json_type = dict[str, str | int | dict[str, Hostname_json_type]]
 
 
 class Host:
@@ -138,13 +136,15 @@ class Host:
         self.hostnames = hostnames
         self.signature = signature
 
-    def data_to_sign(self) -> dict[str, str | bytes | int | dict[str, dict[str, int | bytes]]]:
+    def data_to_sign(
+        self,
+    ) -> Host_json_type:
         if self.publicKey:
-            hostnames: dict[str, dict[str, int | bytes]] = {}
+            hostnames: dict[str, Hostname_json_type] = {}
             for hostname in self.hostnames:
                 hostnames[hostname] = self.hostnames[hostname].__json__()
             hostnames = dict(sorted(hostnames.items()))
-            data: dict[str, str | int | dict[str, dict[ str, int | bytes ]]] = {
+            data: Host_json_type = {
                 "port": self.port,
                 "publicKey": self.publicKey.encode(Base64Encoder).decode(),
                 "lastSeen": int(self.lastSeen.timestamp()),
@@ -154,10 +154,10 @@ class Host:
             raise ValueError("No publicKey set")
         return dict(sorted(data.items()))
 
-    def __json__(self) -> dict:
+    def __json__(self) -> Host_json_type:  # TODO more types
         data = self.data_to_sign()
         if self.signature:
-            data["signature"] = self.signature
+            data["signature"] = self.signature.decode()
         return dict(sorted(data.items()))
 
     def verify(self) -> bool:
@@ -175,9 +175,8 @@ class Host:
                 self.publicKey = other.publicKey
                 self.lastSeen = other.lastSeen
                 self.signature = other.signature
-                # TODO better merging for hostnames
-                for hostname in other.hostnames:
-                    self.hostnames = other.hostnames
+                # TODO merge hostnames from others if they have a signature and it is our host
+                self.hostnames = other.hostnames
             else:
                 print("Invalid signature")
 
@@ -190,6 +189,11 @@ class Host:
             json.dumps(self.data_to_sign()).encode(),
             encoder=Base64Encoder,
         )
+
+
+Network_json_type = dict[
+    str, dict[str, str | int | list[str]] | dict[str, Host_json_type]
+]
 
 
 class Network:
@@ -219,20 +223,23 @@ class Network:
         self.hostnameOverrides = hostnameOverrides
         self.hosts = hosts
 
-    def __json__(self) -> dict:
-        settings = dict(
-            sorted(
-                {
-                    "lastUpdate": int(self.lastUpdate.timestamp()),
-                    "tld": self.tld,
-                    "public": self.public,
-                    "hostSigningKeys": [k.encode() for k in self.hostSigningKeys],
-                    "bannedKeys": self.bannedKeys,
-                    "hostnameOverrides": self.hostnameOverrides,
-                }.items()
-            )
-        )
-        hosts = {str(ip): host.__json__() for ip, host in sorted(self.hosts.items())}
+    def __json__(self) -> Network_json_type:
+        settings: dict[str, str | int | list[str]] = {
+            "lastUpdate": int(self.lastUpdate.timestamp()),
+            "tld": self.tld,
+            "public": self.public,
+            "hostSigningKeys": [
+                k.encode(encoder=Base64Encoder).decode() for k in self.hostSigningKeys
+            ],
+            "bannedKeys": self.bannedKeys,
+            "hostnameOverrides": self.hostnameOverrides,
+        }
+        settings = dict(sorted(settings.items()))
+
+        hosts: dict[str, Host_json_type] = {}
+        for host in dict(sorted(self.hosts.items())):
+            hosts[str(self.hosts[host].ip)] = self.hosts[host].__json__()
+
         return {
             "hosts": hosts,
             "settings": settings,
@@ -253,6 +260,85 @@ class Network:
                     self.hosts[host] = other.hosts[host]
 
         # TODO decay hosts
+
+
+class DataMesher:
+    networks: dict[str, Network]
+    name: str
+    private_key: SigningKey
+
+    def __init__(
+        self, networks: dict[str, Network], name: str, private_key: SigningKey
+    ) -> None:
+        self.networks = networks
+        self.name = name
+        self.private_key = private_key
+
+    def save(self, path: Path) -> None:
+        data: dict[str, dict] = {}  # TODO more types
+        for network in self.networks:
+            data[network] = self.networks[network].__json__()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with NamedTemporaryFile() as f:
+            with open(f.name, "w") as file:
+                json.dump(data, file)
+            shutil.copy(f.name, str(path))
+
+
+def load(path: Path) -> dict[str, Network]:
+    data = json.loads(path.read_text())
+    networks: dict[str, Network] = {}
+    for network in data:
+        hosts: dict[ipaddress.IPv6Address, Host] = {}
+        for host in data[network]["hosts"]:
+            hostnames: dict[str, Hostname] = {}
+            for hostname in data[network]["hosts"][host]["hostnames"]:
+                if (
+                    "signed_at" in data[network]["hosts"][host]["hostnames"][hostname]
+                    and "signature"
+                    in data[network]["hosts"][host]["hostnames"][hostname]
+                ):
+                    hostnames[hostname] = Hostname(
+                        hostname=hostname,
+                        signed_at=datetime.fromtimestamp(
+                            data[network]["hosts"][host]["hostnames"][hostname][
+                                "signed_at"
+                            ]
+                        ),
+                        signature=data[network]["hosts"][host]["hostnames"][hostname][
+                            "signature"
+                        ],
+                    )
+                else:
+                    hostnames[hostname] = Hostname(
+                        hostname=hostname,
+                    )
+
+            hosts[ipaddress.IPv6Address(host)] = Host(
+                ip=ipaddress.IPv6Address(host),
+                port=data[network]["hosts"][host]["port"],
+                publicKey=VerifyKey(
+                    data[network]["hosts"][host]["publicKey"], encoder=Base64Encoder
+                ),
+                lastSeen=datetime.fromtimestamp(
+                    data[network]["hosts"][host]["lastSeen"]
+                ),
+                hostnames=hostnames,
+                signature=data[network]["hosts"][host]["signature"],
+            )
+        networks[network] = Network(
+            tld=data[network]["settings"]["tld"],
+            public=data[network]["settings"]["public"],
+            lastUpdate=datetime.fromtimestamp(data[network]["settings"]["lastUpdate"]),
+            hostSigningKeys=[
+                VerifyKey(k, encoder=Base64Encoder)
+                for k in data[network]["settings"]["hostSigningKeys"]
+            ],
+            bannedKeys=data[network]["settings"]["bannedKeys"],
+            hostnameOverrides=data[network]["settings"]["hostnameOverrides"],
+            hosts=hosts,
+        )
+    return networks
 
 
 def main(args: list[str] = sys.argv[1:]) -> None:
