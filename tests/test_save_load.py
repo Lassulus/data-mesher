@@ -5,32 +5,32 @@ from tempfile import NamedTemporaryFile
 
 from nacl.signing import SigningKey
 
-import data_mesher
+import data_mesher.data
 
 
 def test_save_load() -> None:
     key = SigningKey.generate()
 
-    hostnameA = data_mesher.Hostname("a")
+    hostnameA = data_mesher.data.Hostname("a")
     hostnameA.update_signature(key)
-    peerA = data_mesher.Host(
+    peerA = data_mesher.data.Host(
         ip=IPv6Address("42::1"),
         port=7331,
         publicKey=key.verify_key,
-        hostnames={"a": data_mesher.Hostname("a")},
+        hostnames={"a": data_mesher.data.Hostname("a")},
     )
     peerA.update_signature(key)
 
-    hostnameB = data_mesher.Hostname("b")
+    hostnameB = data_mesher.data.Hostname("b")
     hostnameB.update_signature(key)
-    peerB = data_mesher.Host(
+    peerB = data_mesher.data.Host(
         ip=IPv6Address("42::2"),
         port=7331,
         publicKey=key.verify_key,
         hostnames={"b": hostnameB},
     )
     peerB.update_signature(key)
-    network = data_mesher.Network(
+    network = data_mesher.data.Network(
         lastUpdate=datetime.now(),
         tld="test",
         public=True,
@@ -41,7 +41,7 @@ def test_save_load() -> None:
         },
     )
 
-    dm = data_mesher.DataMesher(
+    dm = data_mesher.data.DataMesher(
         networks={"test": network},
         name="testing",
         private_key=key,
@@ -49,5 +49,5 @@ def test_save_load() -> None:
     with NamedTemporaryFile() as f:
         path = Path(f.name)
         dm.save(path)
-        dm2 = data_mesher.load(path)
+        dm2 = data_mesher.data.load(path)
     dm2["test"].hosts[IPv6Address("42::1")].verify()

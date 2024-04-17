@@ -3,21 +3,21 @@ from ipaddress import IPv6Address
 
 from nacl.signing import SigningKey
 
-import data_mesher
+import data_mesher.data
 
 
 def test_merge() -> None:
     a_key = SigningKey.generate()
     b_key = SigningKey.generate()
 
-    peerA = data_mesher.Host(
+    peerA = data_mesher.data.Host(
         ip=IPv6Address("42::1"),
         port=7331,
         publicKey=a_key.verify_key,
-        hostnames={"a": data_mesher.Hostname("a")},
+        hostnames={"a": data_mesher.data.Hostname("a")},
     )
     peerA.update_signature(a_key)
-    networkA = data_mesher.Network(
+    networkA = data_mesher.data.Network(
         lastUpdate=datetime.now(),
         tld="test",
         public=True,
@@ -25,14 +25,14 @@ def test_merge() -> None:
         hosts={peerA.ip: peerA},
     )
 
-    peerB = data_mesher.Host(
+    peerB = data_mesher.data.Host(
         ip=IPv6Address("42::2"),
         port=7331,
         publicKey=b_key.verify_key,
-        hostnames={"b": data_mesher.Hostname("b")},
+        hostnames={"b": data_mesher.data.Hostname("b")},
     )
     peerB.update_signature(b_key)
-    networkB = data_mesher.Network(
+    networkB = data_mesher.data.Network(
         lastUpdate=datetime.now(),
         tld="test",
         public=True,
