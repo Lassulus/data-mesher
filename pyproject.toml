@@ -16,6 +16,7 @@ classifiers = [
 ]
 dependencies = [
   "pynacl",
+  "aiohttp",
 ]
 
 [project.urls]

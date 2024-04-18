@@ -8,7 +8,10 @@ pkgs.python3.pkgs.buildPythonApplication {
   src = ./.;
   format = "pyproject";
   buildInputs = [ pkgs.makeWrapper ];
-  propagatedBuildInputs = [ pkgs.python3Packages.pynacl ];
+  propagatedBuildInputs = [
+    pkgs.python3Packages.aiohttp
+    pkgs.python3Packages.pynacl
+  ];
   nativeBuildInputs = [ pkgs.python311.pkgs.setuptools ];
   nativeCheckInputs = [
     pkgs.python311.pkgs.pytest

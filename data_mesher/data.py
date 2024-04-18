@@ -260,31 +260,11 @@ class Network:
         # TODO decay hosts
 
 
-class DataMesher:
-    networks: dict[str, Network]
-    name: str
-    private_key: SigningKey
-
-    def __init__(
-        self, networks: dict[str, Network], name: str, private_key: SigningKey
-    ) -> None:
-        self.networks = networks
-        self.name = name
-        self.private_key = private_key
-
-    def save(self, path: Path) -> None:
-        data: dict[str, dict] = {}  # TODO more types
-        for network in self.networks:
-            data[network] = self.networks[network].__json__()
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with NamedTemporaryFile() as f:
-            with open(f.name, "w") as file:
-                json.dump(data, file)
-            shutil.copy(f.name, str(path))
-
-
 def load(path: Path) -> dict[str, Network]:
-    data = json.loads(path.read_text())
+    try:
+        data = json.loads(path.read_text())
+    except json.JSONDecodeError:
+        data = {}
     networks: dict[str, Network] = {}
     for network in data:
         hosts: dict[ipaddress.IPv6Address, Host] = {}
@@ -305,7 +285,7 @@ def load(path: Path) -> dict[str, Network]:
                         ),
                         signature=data[network]["hosts"][host]["hostnames"][hostname][
                             "signature"
-                        ],
+                        ].encode(),
                     )
                 else:
                     hostnames[hostname] = Hostname(
@@ -322,7 +302,7 @@ def load(path: Path) -> dict[str, Network]:
                     data[network]["hosts"][host]["lastSeen"]
                 ),
                 hostnames=hostnames,
-                signature=data[network]["hosts"][host]["signature"],
+                signature=data[network]["hosts"][host]["signature"].encode(),
             )
         networks[network] = Network(
             tld=data[network]["settings"]["tld"],
@@ -337,3 +317,36 @@ def load(path: Path) -> dict[str, Network]:
             hosts=hosts,
         )
     return networks
+
+
+class DataMesher:
+    networks: dict[str, Network]
+    state_file: Path
+    name: str
+
+    def __init__(
+        self, state_file: Path, name: str, networks: dict[str, Network] = {}
+    ) -> None:
+        self.state_file = state_file
+        if state_file.exists():
+            self.networks = load(state_file)
+        self.networks = self.networks | networks
+        self.name = name
+
+    def __json__(self) -> dict[str, Network_json_type]:
+        output: dict[str, Network_json_type] = {}
+        for network in self.networks:
+            output[network] = self.networks[network].__json__()
+        return output
+
+    def save(self) -> None: # TODO make atomic
+        data: dict[str, dict] = {}  # TODO more types
+        for network in self.networks:
+            data[network] = self.networks[network].__json__()
+        self.state_file.parent.mkdir(parents=True, exist_ok=True)
+        with NamedTemporaryFile() as f:
+            with open(f.name, "w") as file:
+                json.dump(data, file)
+            shutil.copy(f.name, str(self.state_file))
+
+

@@ -41,13 +41,13 @@ def test_save_load() -> None:
         },
     )
 
-    dm = data_mesher.data.DataMesher(
-        networks={"test": network},
-        name="testing",
-        private_key=key,
-    )
     with NamedTemporaryFile() as f:
         path = Path(f.name)
-        dm.save(path)
+        dm = data_mesher.data.DataMesher(
+            state_file=path,
+            networks={"test": network},
+            name="testing",
+        )
+        dm.save()
         dm2 = data_mesher.data.load(path)
     dm2["test"].hosts[IPv6Address("42::1")].verify()
