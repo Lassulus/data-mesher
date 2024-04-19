@@ -46,7 +46,7 @@ def main() -> None:
         key_file.parent.mkdir(parents=True, exist_ok=True)
         key_file.write_bytes(key.encode(Base64Encoder))
     else:
-        key = SigningKey(key_file.read_bytes())
+        key = SigningKey(key_file.read_bytes(), encoder=Base64Encoder)
 
     if args.command == "server":
         print("Starting server")
