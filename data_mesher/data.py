@@ -1,6 +1,6 @@
 import ipaddress
 import json
-import shutil
+import os
 from datetime import datetime
 from pathlib import Path
 from tempfile import NamedTemporaryFile
@@ -357,7 +357,7 @@ class DataMesher:
         for network in self.networks:
             data[network] = self.networks[network].__json__()
         self.state_file.parent.mkdir(parents=True, exist_ok=True)
-        with NamedTemporaryFile() as f:
+        with NamedTemporaryFile(dir=self.state_file.parent, delete=False) as f:
             with open(f.name, "w") as file:
                 json.dump(data, file)
-            shutil.copy(f.name, str(self.state_file))
+            os.rename(f.name, str(self.state_file))
