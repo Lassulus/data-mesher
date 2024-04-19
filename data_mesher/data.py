@@ -321,17 +321,28 @@ def load(path: Path) -> dict[str, Network]:
 
 class DataMesher:
     networks: dict[str, Network]
-    state_file: Path
-    name: str
+    state_file: Path | None
+    key: SigningKey | None
+    host: Host | None
 
     def __init__(
-        self, state_file: Path, name: str, networks: dict[str, Network] = {}
+        self,
+        host: Host | None = None,
+        networks: dict[str, Network] = {},
+        state_file: Path | None = None,
+        key: SigningKey | None = None,
     ) -> None:
         self.state_file = state_file
-        if state_file.exists():
+        if state_file and state_file.exists():
             self.networks = load(state_file)
         self.networks = self.networks | networks
-        self.name = name
+        self.host = host
+        self.key = key
+
+    def merge(self, other: "DataMesher") -> None:
+        for network in other.networks:
+            if network in self.networks:
+                self.networks[network].merge(other.networks[network])
 
     def __json__(self) -> dict[str, Network_json_type]:
         output: dict[str, Network_json_type] = {}
@@ -339,7 +350,9 @@ class DataMesher:
             output[network] = self.networks[network].__json__()
         return output
 
-    def save(self) -> None: # TODO make atomic
+    def save(self) -> None:  # TODO make atomic
+        if self.state_file is None:
+            raise ValueError("No state_file set")
         data: dict[str, dict] = {}  # TODO more types
         for network in self.networks:
             data[network] = self.networks[network].__json__()
@@ -348,5 +361,3 @@ class DataMesher:
             with open(f.name, "w") as file:
                 json.dump(data, file)
             shutil.copy(f.name, str(self.state_file))
-
-
