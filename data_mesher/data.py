@@ -188,6 +188,11 @@ class Host:
             encoder=Base64Encoder,
         )
 
+    def is_up2date(self) -> bool:
+        if self.lastSeen:
+            return (datetime.now() - self.lastSeen).total_seconds() < 60
+        return False
+
 
 Network_json_type = dict[
     str, dict[str, str | int | list[str]] | dict[str, Host_json_type]
@@ -242,6 +247,14 @@ class Network:
             "hosts": hosts,
             "settings": settings,
         }
+
+    def get_hosts_older_than(self, seconds: int) -> list[Host]:
+        hosts: list[Host] = []
+        now = datetime.now()
+        for host in self.hosts:
+            if (now - self.hosts[host].lastSeen).total_seconds() > seconds:
+                hosts.append(self.hosts[host])
+        return hosts
 
     def merge(self, other: "Network") -> None:
         if other.lastUpdate > self.lastUpdate:
@@ -335,7 +348,7 @@ class DataMesher:
         self.state_file = state_file
         if state_file and state_file.exists():
             self.networks = load(state_file)
-        self.networks = self.networks | networks
+        self.networks = networks
         self.host = host
         self.key = key
 
@@ -361,3 +374,11 @@ class DataMesher:
             with open(f.name, "w") as file:
                 json.dump(data, file)
             os.rename(f.name, str(self.state_file))
+
+    @property
+    def all_hosts(self) -> list[Host]:
+        hosts: list[Host] = []
+        for network in self.networks:
+            for host in self.networks[network].hosts:
+                hosts.append(self.networks[network].hosts[host])
+        return hosts

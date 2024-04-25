@@ -1,21 +1,33 @@
 import argparse
+import asyncio
 import ipaddress
 import os
 import socket
+from collections.abc import AsyncGenerator
 from pathlib import Path
 
+from aiohttp import web
 from nacl.encoding import Base64Encoder
 from nacl.signing import SigningKey
 
 from .data import DataMesher, Host
-from .http import run
+from .http import client, server
+
+
+async def background_tasks(app: web.Application) -> AsyncGenerator[None, None]:
+    app[client] = asyncio.create_task(client(app))
+
+    yield
+
+    app[client].cancel()
+    await app[client]
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "command",
-        choices=["server"],
+        choices=["server", "create", "test"],
         default=None,
     )
     parser.add_argument(
@@ -38,6 +50,11 @@ def main() -> None:
         "--key-file",
         default=f"{os.environ['HOME']}/.config/data/data-mesher/key",
     )
+    parser.add_argument(
+        "--bootstrap-peer",
+        action="append",
+        default=[],
+    )
     args = parser.parse_args()
 
     key_file = Path(args.key_file)
@@ -50,6 +67,8 @@ def main() -> None:
 
     if args.command == "server":
         print("Starting server")
+        app = web.Application()
+        app["bootstrap_peers"] = args.bootstrap_peer
         dm = DataMesher(
             state_file=Path(args.state_file),
             host=Host(
@@ -59,4 +78,8 @@ def main() -> None:
             ),
             key=key,
         )
-        run(dm=dm)
+        app["data"] = dm
+        app.cleanup_ctx.append(background_tasks)
+        web.run_app(server(app), port=args.port)
+    elif args.command == "test":
+        print(args.bootstrap_peer)
