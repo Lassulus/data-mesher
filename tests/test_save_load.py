@@ -50,4 +50,4 @@ def test_save_load() -> None:
         )
         dm.save()
         dm2 = data_mesher.data.DataMesher(state_file=path, host=peerA)
-    dm2.networks["test"].hosts[IPv6Address("42::1")].verify()
+        dm2.networks["test"].hosts[IPv6Address("42::1")].verify()

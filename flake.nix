@@ -21,6 +21,7 @@
         "x86_64-darwin"
         "aarch64-darwin"
       ];
+      flake.checks.x86_64-linux.data-mesher = import ./tests/nixos_tests/default.nix { inherit lib; pkgs = inputs.nixpkgs.legacyPackages.x86_64-linux; };
       perSystem = { config, pkgs, self', ... }: {
         packages.data-mesher = pkgs.callPackage ./. { };
         packages.default = config.packages.data-mesher;

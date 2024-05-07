@@ -333,7 +333,7 @@ def load(path: Path) -> dict[str, Network]:
 
 
 class DataMesher:
-    networks: dict[str, Network]
+    networks: dict[str, Network] = {}
     state_file: Path | None
     key: SigningKey | None
     host: Host | None
@@ -348,7 +348,7 @@ class DataMesher:
         self.state_file = state_file
         if state_file and state_file.exists():
             self.networks = load(state_file)
-        self.networks = networks
+        self.networks = self.networks | networks
         self.host = host
         self.key = key
 
