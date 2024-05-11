@@ -63,7 +63,7 @@ async def test_server(
         tld="test",
         public=True,
         hostSigningKeys=[key1.verify_key],
-        hosts={host1.ip: host1},
+        hosts={key1.verify_key: host1},
     )
     s1 = spawn_server(
         data_mesher=DataMesher(

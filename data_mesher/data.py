@@ -113,7 +113,7 @@ class Host:
 
     ip: ipaddress.IPv6Address
     port: int
-    publicKey: VerifyKey | None
+    publicKey: VerifyKey
     lastSeen: datetime
     hostnames: dict[str, Hostname]
     signature: bytes | None
@@ -122,7 +122,7 @@ class Host:
         self,
         ip: ipaddress.IPv6Address,
         port: int,
-        publicKey: VerifyKey | None = None,
+        publicKey: VerifyKey,
         lastSeen: datetime = datetime.now(),
         hostnames: dict[str, Hostname] = {},
         signature: bytes | None = None,
@@ -137,19 +137,16 @@ class Host:
     def data_to_sign(
         self,
     ) -> Host_json_type:
-        if self.publicKey:
-            hostnames: dict[str, Hostname_json_type] = {}
-            for hostname in self.hostnames:
-                hostnames[hostname] = self.hostnames[hostname].__json__()
-            hostnames = dict(sorted(hostnames.items()))
-            data: Host_json_type = {
-                "port": self.port,
-                "publicKey": self.publicKey.encode(Base64Encoder).decode(),
-                "lastSeen": int(self.lastSeen.timestamp()),
-                "hostnames": hostnames,
-            }
-        else:
-            raise ValueError("No publicKey set")
+        hostnames: dict[str, Hostname_json_type] = {}
+        for hostname in self.hostnames:
+            hostnames[hostname] = self.hostnames[hostname].__json__()
+        hostnames = dict(sorted(hostnames.items()))
+        data: Host_json_type = {
+            "port": self.port,
+            "ip": str(self.ip),
+            "lastSeen": int(self.lastSeen.timestamp()),
+            "hostnames": hostnames,
+        }
         return dict(sorted(data.items()))
 
     def __json__(self) -> Host_json_type:  # TODO more types
@@ -159,7 +156,7 @@ class Host:
         return dict(sorted(data.items()))
 
     def verify(self) -> bool:
-        if self.publicKey and self.signature:
+        if self.signature:
             return (
                 self.publicKey.verify(self.signature, encoder=Base64Encoder)
                 == json.dumps(self.data_to_sign()).encode()
@@ -206,7 +203,7 @@ class Network:
     hostSigningKeys: list[VerifyKey]  # TODO proper class
     bannedKeys: list[str]  # TODO proper class
     hostnameOverrides: list  # TODO proper class
-    hosts: dict[ipaddress.IPv6Address, Host]
+    hosts: dict[VerifyKey, Host]
 
     def __init__(
         self,
@@ -216,7 +213,7 @@ class Network:
         hostSigningKeys: list[VerifyKey] = [],
         bannedKeys: list[str] = [],
         hostnameOverrides: list = [],
-        hosts: dict[ipaddress.IPv6Address, Host] = {},
+        hosts: dict[VerifyKey, Host] = {},
     ) -> None:
         self.tld = tld
         self.public = public
@@ -240,8 +237,10 @@ class Network:
         settings = dict(sorted(settings.items()))
 
         hosts: dict[str, Host_json_type] = {}
-        for host in dict(sorted(self.hosts.items())):
-            hosts[str(self.hosts[host].ip)] = self.hosts[host].__json__()
+        for host in self.hosts:
+            hosts[self.hosts[host].publicKey.encode(encoder=Base64Encoder).decode()] = (
+                self.hosts[host].__json__()
+            )
 
         return {
             "hosts": hosts,
@@ -280,7 +279,7 @@ def load(path: Path) -> dict[str, Network]:
         data = {}
     networks: dict[str, Network] = {}
     for network in data:
-        hosts: dict[ipaddress.IPv6Address, Host] = {}
+        hosts: dict[VerifyKey, Host] = {}
         for host in data[network]["hosts"]:
             hostnames: dict[str, Hostname] = {}
             for hostname in data[network]["hosts"][host]["hostnames"]:
@@ -305,12 +304,10 @@ def load(path: Path) -> dict[str, Network]:
                         hostname=hostname,
                     )
 
-            hosts[ipaddress.IPv6Address(host)] = Host(
-                ip=ipaddress.IPv6Address(host),
+            hosts[VerifyKey(host, encoder=Base64Encoder)] = Host(
+                ip=ipaddress.IPv6Address(data[network]["hosts"][host]["ip"]),
                 port=data[network]["hosts"][host]["port"],
-                publicKey=VerifyKey(
-                    data[network]["hosts"][host]["publicKey"], encoder=Base64Encoder
-                ),
+                publicKey=VerifyKey(host, encoder=Base64Encoder),
                 lastSeen=datetime.fromtimestamp(
                     data[network]["hosts"][host]["lastSeen"]
                 ),

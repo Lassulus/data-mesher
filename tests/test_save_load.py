@@ -9,35 +9,35 @@ import data_mesher.data
 
 
 def test_save_load() -> None:
-    key = SigningKey.generate()
-
+    keyA = SigningKey.generate()
     hostnameA = data_mesher.data.Hostname("a")
-    hostnameA.update_signature(key)
+    hostnameA.update_signature(keyA)
     peerA = data_mesher.data.Host(
         ip=IPv6Address("42::1"),
         port=7331,
-        publicKey=key.verify_key,
+        publicKey=keyA.verify_key,
         hostnames={"a": data_mesher.data.Hostname("a")},
     )
-    peerA.update_signature(key)
+    peerA.update_signature(keyA)
 
+    keyB = SigningKey.generate()
     hostnameB = data_mesher.data.Hostname("b")
-    hostnameB.update_signature(key)
+    hostnameB.update_signature(keyB)
     peerB = data_mesher.data.Host(
         ip=IPv6Address("42::2"),
         port=7331,
-        publicKey=key.verify_key,
+        publicKey=keyB.verify_key,
         hostnames={"b": hostnameB},
     )
-    peerB.update_signature(key)
+    peerB.update_signature(keyB)
     network = data_mesher.data.Network(
         lastUpdate=datetime.now(),
         tld="test",
         public=True,
-        hostSigningKeys=[key.verify_key],
+        hostSigningKeys=[keyA.verify_key],
         hosts={
-            peerA.ip: peerA,
-            peerB.ip: peerB,
+            keyA.verify_key: peerA,
+            keyB.verify_key: peerB,
         },
     )
 
@@ -50,4 +50,4 @@ def test_save_load() -> None:
         )
         dm.save()
         dm2 = data_mesher.data.DataMesher(state_file=path, host=peerA)
-        dm2.networks["test"].hosts[IPv6Address("42::1")].verify()
+        dm2.networks["test"].hosts[keyA.verify_key].verify()
