@@ -353,6 +353,8 @@ class DataMesher:
         for network in other.networks:
             if network in self.networks:
                 self.networks[network].merge(other.networks[network])
+            else:
+                self.networks[network] = other.networks[network]
 
     def __json__(self) -> dict[str, Network_json_type]:
         output: dict[str, Network_json_type] = {}
