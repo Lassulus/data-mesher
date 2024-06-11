@@ -98,4 +98,6 @@ async def test_server(
     await aiohttp_server(s2, port=s2_port, host="::1")
     await asyncio.sleep(10)
     data_mesher: DataMesher = s2[DATA]
-    log.info(data_mesher.networks["test"].__json__())
+    assert host1.publicKey in [h.publicKey for h in data_mesher.all_hosts]
+
+    # TODO check of the host2 is in s2 data

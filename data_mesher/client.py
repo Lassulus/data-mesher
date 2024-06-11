@@ -4,7 +4,7 @@ import logging
 from aiohttp import ClientSession, client_exceptions, web
 
 from .app_keys import BOOTSTRAP_PEERS, DATA
-from .data import DataMesher
+from .data import DataMesher, load
 
 log = logging.getLogger(__name__)
 
@@ -25,22 +25,24 @@ async def create_client(app: web.Application) -> None:
                             hostname, json=dm.__json__()
                         ) as response:
                             data = await response.json()
-                            log.debug(f"received {data}")
-                            other = DataMesher(networks=data)
+                            log.debug(f"[client] received {data}")
+                            other = DataMesher(networks=load(data))
+                            log.debug(f"[client] other data parsed: {other.__json__()}")
                             dm.merge(other)
+                            log.debug(f"[client] merged data: {dm.__json__()}")
                         # TODO add to not_seen_bootstrap_peers if timeout or error
                     except client_exceptions.InvalidURL as e:
                         log.debug(
-                            f"connection failed with invalid url: {hostname} error: {e}"
+                            f"[client] connection failed with invalid url: {hostname} error: {e}"
                         )
                     except client_exceptions.ClientConnectorError as e:
                         log.debug(
-                            f"connection failed with client connector error: {hostname} error: {e}"
+                            f"[client] connection failed with client connector error: {hostname} error: {e}"
                         )
                         bootstrap_peers.append(hostname)
 
             for host in dm.all_hosts:
-                log.debug(f"checking if ${host} is up2date")
+                log.debug(f"[client] checking if ${host} is up2date")
                 if not host.is_up2date():
                     async with session.post(host, json=dm.__json__()) as response:
                         data = await response.json()

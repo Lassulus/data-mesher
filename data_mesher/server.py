@@ -10,7 +10,7 @@ from nacl.signing import SigningKey
 
 from .app_keys import BOOTSTRAP_PEERS, CLIENT, DATA
 from .client import create_client
-from .data import DataMesher
+from .data import DataMesher, load
 
 log = logging.getLogger(__name__)
 
@@ -35,9 +35,12 @@ def create_routes(app: web.Application) -> web.Application:
     @routes.post("/")
     async def post_data(request: web.Request) -> web.Response:
         data = await request.post()
-        other = DataMesher(networks=dict(data))
+        log.debug(f"[server] received data: {dict(data)}")
+        other = DataMesher(networks=load(dict(data)))
+        log.debug(f"[server] other data parsed: {other.__json__()}")
         dm = app[DATA]
         dm.merge(other)
+        log.debug(f"[server] merged data: {dm.__json__()}")
         return web.json_response(dm.__json__())
 
     app.add_routes(routes)

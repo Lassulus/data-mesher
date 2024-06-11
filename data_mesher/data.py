@@ -1,5 +1,6 @@
 import ipaddress
 import json
+import logging
 import os
 from datetime import datetime
 from pathlib import Path
@@ -8,45 +9,7 @@ from tempfile import NamedTemporaryFile
 from nacl.encoding import Base64Encoder
 from nacl.signing import SigningKey, VerifyKey
 
-"""
-{
-  "somepublickeyXXXXxxx" {
-    "settings": {
-      "lastUpdate":1238918291823 # some timestamp, oldest timestamp wins
-      "tld": "n",
-      "public": false, # a public network doesn't need the adminSignature on the host level
-      "additionalHostSigningKeys": [
-        "1asdaasd", # the additional keys can be used to sign hostnames or hosts
-      ],
-      "bannedKeys": [
-        "dasodaosidjaosdijas" # banned hostKeys
-      ],
-      "hostnameOverrides": [
-        { "hostname": "wiki", "address": "dcc:c5da:5295:c853:d499:935e:6b45:fd2f" }
-      ],
-      "signature": "yadayada" # the signature of the settings, signed by the networks adminKey
-      ...
-    },
-    "hosts": {
-      "fdcc:c5da:5295:c853:d499:935e:6b45:fd2f": {
-        "publicKey": "asdasduhiuahsidua", # since we can't deduce the public key from the ip address (but we can verify it), we need to transmit it also
-        "lastSeen": "2024-02-21T06:17:27+01:00", # when this host was last seen, this is used for connection retry or decaying the host
-        "hostnames": [
-          { "hostname": "ignavia", "signed_at": "8768768778", "signature": "asdasdasdad" } # signature is used in case of conflict, is signed by the networks adminKey or any additionalHostSigningKeys
-          # if multiple hosts claim the same hostnames the earlier signing date wins
-          # if there are multiple signatures for the same hostnames the oldest one wins, if 2 have the same time, the lexicographically first signature wins
-          { "hostname": "wiki-backup" } # hostnames which are not signed yet don't have a signature and a timestamp, other peers will only accept them if they don't conflict with another existing hostname
-        ],
-        "signature": "sha256:oaisjdoaisjd" # the signature of the content without the signature, signed by the host
-        "adminSignature": "jiuasiduashdiausdh" # if the network is not public, we can use this signature to aknowledge that this host is part of the network, the admin signature is just signing the ip address of the host (with which we can check if the publicKey is correct)
-      },
-      "fdcc:c5da:5295:c853:d499:935e:6b45:fefe": {
-        ...
-      }
-    }
-  }
-}
-"""
+log = logging.getLogger(__name__)
 
 Hostname_json_type = dict[str, str | int]
 
@@ -161,6 +124,8 @@ class Host:
                 self.publicKey.verify(self.signature, encoder=Base64Encoder)
                 == json.dumps(self.data_to_sign()).encode()
             )
+        else:
+            log.debug("[verify] No signature")
         return False
 
     def merge(self, other: "Host") -> None:
@@ -189,6 +154,12 @@ class Host:
         if self.lastSeen:
             return (datetime.now() - self.lastSeen).total_seconds() < 60
         return False
+
+    def __str__(self) -> str:
+        return f"{self.ip}:{self.port} {self.publicKey.encode(encoder=Base64Encoder)}"
+
+    def __repr__(self) -> str:
+        return self.__str__()
 
 
 Network_json_type = dict[
@@ -237,6 +208,7 @@ class Network:
         settings = dict(sorted(settings.items()))
 
         hosts: dict[str, Host_json_type] = {}
+        log.debug(f"hosts: {self.hosts}")
         for host in self.hosts:
             hosts[self.hosts[host].publicKey.encode(encoder=Base64Encoder).decode()] = (
                 self.hosts[host].__json__()
@@ -257,6 +229,9 @@ class Network:
 
     def merge(self, other: "Network") -> None:
         if other.lastUpdate > self.lastUpdate:
+            log.debug(
+                f"[network merge] timestamp of other is newer: {other.lastUpdate}"
+            )
             self.tld = other.tld
             self.public = other.public
             self.hostSigningKeys = other.hostSigningKeys
@@ -266,23 +241,27 @@ class Network:
             if host in self.hosts:
                 self.hosts[host].merge(other.hosts[host])
             else:
-                if other.hosts[host].verify():
-                    self.hosts[host] = other.hosts[host]
+                # TODO verify
+                # verifying is a bit complicated because we don't get the public key if the other hosst desn't have it yet
+                # if other.hosts[host].verify():
+                #     self.hosts[host] = other.hosts[host]
+                # else:
+                #     log.debug(f"[network merge] invalid signature for host: {host}")
+                self.hosts[host] = other.hosts[host]
 
         # TODO decay hosts
 
 
-def load(path: Path) -> dict[str, Network]:
-    try:
-        data = json.loads(path.read_text())
-    except json.JSONDecodeError:
-        data = {}
+def load(data: dict) -> dict[str, Network]:
     networks: dict[str, Network] = {}
     for network in data:
+        log.debug(f"[load] network: {data[network]}")
         hosts: dict[VerifyKey, Host] = {}
         for host in data[network]["hosts"]:
+            log.debug(f"[load] host: {data[network]['hosts'][host]}")
             hostnames: dict[str, Hostname] = {}
             for hostname in data[network]["hosts"][host]["hostnames"]:
+                log.debug(f"[load] hostname: {hostname}")
                 if (
                     "signed_at" in data[network]["hosts"][host]["hostnames"][hostname]
                     and "signature"
@@ -303,17 +282,26 @@ def load(path: Path) -> dict[str, Network]:
                     hostnames[hostname] = Hostname(
                         hostname=hostname,
                     )
+                log.debug(f"[load] parsed hostnames: {hostnames}")
 
-            hosts[VerifyKey(host, encoder=Base64Encoder)] = Host(
-                ip=ipaddress.IPv6Address(data[network]["hosts"][host]["ip"]),
-                port=data[network]["hosts"][host]["port"],
-                publicKey=VerifyKey(host, encoder=Base64Encoder),
-                lastSeen=datetime.fromtimestamp(
-                    data[network]["hosts"][host]["lastSeen"]
-                ),
-                hostnames=hostnames,
-                signature=data[network]["hosts"][host]["signature"].encode(),
-            )
+            try:
+                if "signature" in data[network]["hosts"][host]:
+                    signature = data[network]["hosts"][host]["signature"]
+                else:
+                    signature = None
+                hosts[VerifyKey(host, encoder=Base64Encoder)] = Host(
+                    ip=ipaddress.IPv6Address(data[network]["hosts"][host]["ip"]),
+                    port=data[network]["hosts"][host]["port"],
+                    publicKey=VerifyKey(host, encoder=Base64Encoder),
+                    lastSeen=datetime.fromtimestamp(
+                        data[network]["hosts"][host]["lastSeen"]
+                    ),
+                    hostnames=hostnames,
+                    signature=signature,
+                )
+            except Exception as e:
+                log.info(f"[load] triggered exception: {repr(e)}")
+            log.debug(f"[load] parsed hosts: {hosts}")
         networks[network] = Network(
             tld=data[network]["settings"]["tld"],
             public=data[network]["settings"]["public"],
@@ -326,6 +314,7 @@ def load(path: Path) -> dict[str, Network]:
             hostnameOverrides=data[network]["settings"]["hostnameOverrides"],
             hosts=hosts,
         )
+    log.debug(f"[load] returning: {networks}")
     return networks
 
 
@@ -344,7 +333,11 @@ class DataMesher:
     ) -> None:
         self.state_file = state_file
         if state_file and state_file.exists():
-            self.networks = load(state_file)
+            try:
+                data = json.loads(state_file.read_text())
+            except json.JSONDecodeError:
+                data = {}
+            self.networks = load(data)
         self.networks = self.networks | networks
         self.host = host
         self.key = key
@@ -355,6 +348,7 @@ class DataMesher:
                 self.networks[network].merge(other.networks[network])
             else:
                 self.networks[network] = other.networks[network]
+        log.debug(f"[dm merge] merged networks: {self.networks}")
 
     def __json__(self) -> dict[str, Network_json_type]:
         output: dict[str, Network_json_type] = {}
