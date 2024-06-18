@@ -80,14 +80,15 @@ async def test_server(
     network2 = Network(
         tld="test",
     )
+    host2 = Host(
+        ip=ipaddress.IPv6Address("::1"),
+        port=s2_port,
+        publicKey=key2.verify_key,
+        hostnames={"s2": Hostname("s2")},
+    )
     s2 = spawn_server(
         data_mesher=DataMesher(
-            host=Host(
-                ip=ipaddress.IPv6Address("::1"),
-                port=s2_port,
-                publicKey=key2.verify_key,
-                hostnames={"s2": Hostname("s2")},
-            ),
+            host=host2,
             networks={"test": network2},
             state_file=state2,
         ),
@@ -99,5 +100,6 @@ async def test_server(
     await asyncio.sleep(10)
     data_mesher: DataMesher = s2[DATA]
     assert host1.publicKey in [h.publicKey for h in data_mesher.all_hosts]
+    assert host2.publicKey in [h.publicKey for h in data_mesher.all_hosts]
 
     # TODO check of the host2 is in s2 data

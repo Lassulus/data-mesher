@@ -169,12 +169,13 @@ Network_json_type = dict[
 
 class Network:
     lastUpdate: datetime
+    data_mesher: "DataMesher | None"
     tld: str
     public: bool
     hostSigningKeys: list[VerifyKey]  # TODO proper class
     bannedKeys: list[str]  # TODO proper class
     hostnameOverrides: list  # TODO proper class
-    hosts: dict[VerifyKey, Host]
+    _hosts: dict[VerifyKey, Host]
 
     def __init__(
         self,
@@ -192,7 +193,17 @@ class Network:
         self.hostSigningKeys = hostSigningKeys
         self.bannedKeys = bannedKeys
         self.hostnameOverrides = hostnameOverrides
-        self.hosts = hosts
+        self._hosts = hosts
+        self.data_mesher = None
+
+    @property
+    def hosts(self) -> dict[VerifyKey, Host]:
+        hosts = self._hosts
+        if self.data_mesher and self.data_mesher.host:
+            if self.data_mesher.key:
+                self.data_mesher.host.update_signature(self.data_mesher.key)
+            hosts[self.data_mesher.host.publicKey] = self.data_mesher.host
+        return hosts
 
     def __json__(self) -> Network_json_type:
         settings: dict[str, str | int | list[str]] = {
@@ -339,6 +350,8 @@ class DataMesher:
                 data = {}
             self.networks = load(data)
         self.networks = self.networks | networks
+        for network in self.networks:
+            self.networks[network].data_mesher = self
         self.host = host
         self.key = key
 
