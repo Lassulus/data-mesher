@@ -17,6 +17,7 @@ def test_save_load() -> None:
         port=7331,
         public_key=keyA.verify_key,
         hostnames={"a": data_mesher.data.Hostname("a")},
+        signing_key=keyA,
     )
     peerA.update_signature(keyA)
 
@@ -28,6 +29,7 @@ def test_save_load() -> None:
         port=7331,
         public_key=keyB.verify_key,
         hostnames={"b": hostnameB},
+        signing_key=keyB,
     )
     peerB.update_signature(keyB)
     network = data_mesher.data.Network(

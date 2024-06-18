@@ -44,7 +44,10 @@ async def create_client(app: web.Application) -> None:
             for host in dm.all_hosts:
                 log.debug(f"[client] checking if ${host} is up2date")
                 if not host.is_up2date():
-                    async with session.post(host, json=dm.__json__()) as response:
+                    log.debug(f"[client] ${host} is not up2date")
+                    async with session.post(
+                        f"http://[{host.ip}]:{host.port}", json=dm.__json__()
+                    ) as response:
                         data = await response.json()
                         # log.debug(f"received {data}")
                         other = DataMesher(networks=data)

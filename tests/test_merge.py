@@ -15,6 +15,7 @@ def test_merge() -> None:
         port=7331,
         public_key=a_key.verify_key,
         hostnames={"a": data_mesher.data.Hostname("a")},
+        signing_key=a_key,
     )
     peerA.update_signature(a_key)
     networkA = data_mesher.data.Network(
@@ -30,6 +31,7 @@ def test_merge() -> None:
         port=7331,
         public_key=b_key.verify_key,
         hostnames={"b": data_mesher.data.Hostname("b")},
+        signing_key=b_key,
     )
     peerB.update_signature(b_key)
     networkB = data_mesher.data.Network(

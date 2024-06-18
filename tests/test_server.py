@@ -58,6 +58,7 @@ async def test_server(
         port=s1_port,
         public_key=key1.verify_key,
         hostnames={"s1": Hostname("s1")},
+        signing_key=key1,
     )
     network1 = Network(
         tld="test",
@@ -85,6 +86,7 @@ async def test_server(
         port=s2_port,
         public_key=key2.verify_key,
         hostnames={"s2": Hostname("s2")},
+        signing_key=key2,
     )
     s2 = spawn_server(
         data_mesher=DataMesher(
@@ -100,7 +102,9 @@ async def test_server(
     await asyncio.sleep(10)
     data_mesher: DataMesher = s2[DATA]
     log.debug(f"all hosts: {data_mesher.all_hosts}")
-    assert host1.public_key in [h.public_key for h in data_mesher.all_hosts]
-    assert host2.public_key in [h.public_key for h in data_mesher.all_hosts]
-
-    # TODO check of the host2 is in s2 data
+    assert host1.public_key.encode() in [
+        h.public_key.encode() for h in data_mesher.all_hosts
+    ]
+    assert host2.public_key.encode() in [
+        h.public_key.encode() for h in data_mesher.all_hosts
+    ]
