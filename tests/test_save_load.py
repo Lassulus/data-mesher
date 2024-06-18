@@ -15,7 +15,7 @@ def test_save_load() -> None:
     peerA = data_mesher.data.Host(
         ip=IPv6Address("42::1"),
         port=7331,
-        publicKey=keyA.verify_key,
+        public_key=keyA.verify_key,
         hostnames={"a": data_mesher.data.Hostname("a")},
     )
     peerA.update_signature(keyA)
@@ -26,15 +26,15 @@ def test_save_load() -> None:
     peerB = data_mesher.data.Host(
         ip=IPv6Address("42::2"),
         port=7331,
-        publicKey=keyB.verify_key,
+        public_key=keyB.verify_key,
         hostnames={"b": hostnameB},
     )
     peerB.update_signature(keyB)
     network = data_mesher.data.Network(
-        lastUpdate=datetime.now(),
+        last_update=datetime.now(),
         tld="test",
         public=True,
-        hostSigningKeys=[keyA.verify_key],
+        host_signing_keys=[keyA.verify_key],
         hosts={
             keyA.verify_key: peerA,
             keyB.verify_key: peerB,

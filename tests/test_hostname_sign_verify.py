@@ -13,7 +13,7 @@ def test_save_load() -> None:
     peer = data_mesher.data.Host(
         ip=IPv6Address("42::1"),
         port=7331,
-        publicKey=key.verify_key,
+        public_key=key.verify_key,
         hostnames={"test": data_mesher.data.Hostname("test")},
     )
     peer.update_signature(key)

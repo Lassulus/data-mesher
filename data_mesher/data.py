@@ -50,12 +50,12 @@ class Hostname:
                 return True
         return False
 
-    def update_signature(self, signingKey: SigningKey) -> None:
+    def update_signature(self, signing_key: SigningKey) -> None:
         """
         Sign the content of the host with the given signingKey and update the signature.
         """
         self.signed_at = datetime.now()
-        self.signature = signingKey.sign(
+        self.signature = signing_key.sign(
             json.dumps(self.data_to_sign()).encode(),
             encoder=Base64Encoder,
         )
@@ -76,8 +76,8 @@ class Host:
 
     ip: ipaddress.IPv6Address
     port: int
-    publicKey: VerifyKey
-    lastSeen: datetime
+    public_key: VerifyKey
+    last_seen: datetime
     hostnames: dict[str, Hostname]
     signature: bytes | None
 
@@ -85,15 +85,15 @@ class Host:
         self,
         ip: ipaddress.IPv6Address,
         port: int,
-        publicKey: VerifyKey,
-        lastSeen: datetime = datetime.now(),
+        public_key: VerifyKey,
+        last_seen: datetime = datetime.now(),
         hostnames: dict[str, Hostname] = {},
         signature: bytes | None = None,
     ) -> None:
         self.ip = ip
         self.port = port
-        self.publicKey = publicKey
-        self.lastSeen = lastSeen
+        self.public_key = public_key
+        self.last_seen = last_seen
         self.hostnames = hostnames
         self.signature = signature
 
@@ -107,7 +107,7 @@ class Host:
         data: Host_json_type = {
             "port": self.port,
             "ip": str(self.ip),
-            "lastSeen": int(self.lastSeen.timestamp()),
+            "last_seen": int(self.last_seen.timestamp()),
             "hostnames": hostnames,
         }
         return dict(sorted(data.items()))
@@ -121,7 +121,7 @@ class Host:
     def verify(self) -> bool:
         if self.signature:
             return (
-                self.publicKey.verify(self.signature, encoder=Base64Encoder)
+                self.public_key.verify(self.signature, encoder=Base64Encoder)
                 == json.dumps(self.data_to_sign()).encode()
             )
         else:
@@ -129,34 +129,34 @@ class Host:
         return False
 
     def merge(self, other: "Host") -> None:
-        if other.lastSeen > self.lastSeen:
+        if other.last_seen > self.last_seen:
             if other.verify():
                 self.port = other.port
-                self.publicKey = other.publicKey
-                self.lastSeen = other.lastSeen
+                self.public_key = other.public_key
+                self.last_seen = other.last_seen
                 self.signature = other.signature
                 # TODO merge hostnames from others if they have a signature and it is our host
                 self.hostnames = other.hostnames
             else:
                 print("Invalid signature")
 
-    def update_signature(self, signingKey: SigningKey) -> None:
+    def update_signature(self, signing_key: SigningKey) -> None:
         """
         Sign the content of the host with the given signingKey and return the signature.
         """
-        self.lastSeen = datetime.now()
-        self.signature = signingKey.sign(
+        self.last_seen = datetime.now()
+        self.signature = signing_key.sign(
             json.dumps(self.data_to_sign()).encode(),
             encoder=Base64Encoder,
         )
 
     def is_up2date(self) -> bool:
-        if self.lastSeen:
-            return (datetime.now() - self.lastSeen).total_seconds() < 60
+        if self.last_seen:
+            return (datetime.now() - self.last_seen).total_seconds() < 60
         return False
 
     def __str__(self) -> str:
-        return f"{self.ip}:{self.port} {self.publicKey.encode(encoder=Base64Encoder)}"
+        return f"{self.ip}:{self.port} {self.public_key.encode(encoder=Base64Encoder)}"
 
     def __repr__(self) -> str:
         return self.__str__()
@@ -168,31 +168,31 @@ Network_json_type = dict[
 
 
 class Network:
-    lastUpdate: datetime
+    last_update: datetime
     data_mesher: "DataMesher | None"
     tld: str
     public: bool
-    hostSigningKeys: list[VerifyKey]  # TODO proper class
-    bannedKeys: list[str]  # TODO proper class
-    hostnameOverrides: list  # TODO proper class
+    host_signing_keys: list[VerifyKey]  # TODO proper class
+    banned_keys: list[str]  # TODO proper class
+    hostname_overrides: list  # TODO proper class
     _hosts: dict[VerifyKey, Host]
 
     def __init__(
         self,
         tld: str,
         public: bool = True,
-        lastUpdate: datetime = datetime.now(),
-        hostSigningKeys: list[VerifyKey] = [],
-        bannedKeys: list[str] = [],
-        hostnameOverrides: list = [],
+        last_update: datetime = datetime.now(),
+        host_signing_keys: list[VerifyKey] = [],
+        banned_keys: list[str] = [],
+        hostname_overrides: list = [],
         hosts: dict[VerifyKey, Host] = {},
     ) -> None:
         self.tld = tld
         self.public = public
-        self.lastUpdate = lastUpdate
-        self.hostSigningKeys = hostSigningKeys
-        self.bannedKeys = bannedKeys
-        self.hostnameOverrides = hostnameOverrides
+        self.last_update = last_update
+        self.host_signing_keys = host_signing_keys
+        self.banned_keys = banned_keys
+        self.hostname_overrides = hostname_overrides
         self._hosts = hosts
         self.data_mesher = None
 
@@ -202,26 +202,27 @@ class Network:
         if self.data_mesher and self.data_mesher.host:
             if self.data_mesher.key:
                 self.data_mesher.host.update_signature(self.data_mesher.key)
-            hosts[self.data_mesher.host.publicKey] = self.data_mesher.host
+
+            hosts[self.data_mesher.host.public_key] = self.data_mesher.host
         return hosts
 
     def __json__(self) -> Network_json_type:
         settings: dict[str, str | int | list[str]] = {
-            "lastUpdate": int(self.lastUpdate.timestamp()),
+            "last_update": int(self.last_update.timestamp()),
             "tld": self.tld,
             "public": self.public,
-            "hostSigningKeys": [
-                k.encode(encoder=Base64Encoder).decode() for k in self.hostSigningKeys
+            "host_signing_keys": [
+                k.encode(encoder=Base64Encoder).decode() for k in self.host_signing_keys
             ],
-            "bannedKeys": self.bannedKeys,
-            "hostnameOverrides": self.hostnameOverrides,
+            "banned_keys": self.banned_keys,
+            "hostname_overrides": self.hostname_overrides,
         }
         settings = dict(sorted(settings.items()))
 
         hosts: dict[str, Host_json_type] = {}
         log.debug(f"hosts: {self.hosts}")
         for host in self.hosts:
-            hosts[self.hosts[host].publicKey.encode(encoder=Base64Encoder).decode()] = (
+            hosts[self.hosts[host].public_key.encode(encoder=Base64Encoder).decode()] = (
                 self.hosts[host].__json__()
             )
 
@@ -234,20 +235,20 @@ class Network:
         hosts: list[Host] = []
         now = datetime.now()
         for host in self.hosts:
-            if (now - self.hosts[host].lastSeen).total_seconds() > seconds:
+            if (now - self.hosts[host].last_seen).total_seconds() > seconds:
                 hosts.append(self.hosts[host])
         return hosts
 
     def merge(self, other: "Network") -> None:
-        if other.lastUpdate > self.lastUpdate:
+        if other.last_update > self.last_update:
             log.debug(
-                f"[network merge] timestamp of other is newer: {other.lastUpdate}"
+                f"[network merge] timestamp of other is newer: {other.last_update}"
             )
             self.tld = other.tld
             self.public = other.public
-            self.hostSigningKeys = other.hostSigningKeys
-            self.bannedKeys = other.bannedKeys
-            self.hostnameOverrides = other.hostnameOverrides
+            self.host_signing_keys = other.host_signing_keys
+            self.banned_keys = other.banned_keys
+            self.hostname_overrides = other.hostname_overrides
         for host in other.hosts:
             if host in self.hosts:
                 self.hosts[host].merge(other.hosts[host])
@@ -303,9 +304,9 @@ def load(data: dict) -> dict[str, Network]:
                 hosts[VerifyKey(host, encoder=Base64Encoder)] = Host(
                     ip=ipaddress.IPv6Address(data[network]["hosts"][host]["ip"]),
                     port=data[network]["hosts"][host]["port"],
-                    publicKey=VerifyKey(host, encoder=Base64Encoder),
-                    lastSeen=datetime.fromtimestamp(
-                        data[network]["hosts"][host]["lastSeen"]
+                    public_key=VerifyKey(host, encoder=Base64Encoder),
+                    last_seen=datetime.fromtimestamp(
+                        data[network]["hosts"][host]["last_seen"]
                     ),
                     hostnames=hostnames,
                     signature=signature,
@@ -316,13 +317,13 @@ def load(data: dict) -> dict[str, Network]:
         networks[network] = Network(
             tld=data[network]["settings"]["tld"],
             public=data[network]["settings"]["public"],
-            lastUpdate=datetime.fromtimestamp(data[network]["settings"]["lastUpdate"]),
-            hostSigningKeys=[
+            last_update=datetime.fromtimestamp(data[network]["settings"]["last_update"]),
+            host_signing_keys=[
                 VerifyKey(k, encoder=Base64Encoder)
-                for k in data[network]["settings"]["hostSigningKeys"]
+                for k in data[network]["settings"]["host_signing_keys"]
             ],
-            bannedKeys=data[network]["settings"]["bannedKeys"],
-            hostnameOverrides=data[network]["settings"]["hostnameOverrides"],
+            banned_keys=data[network]["settings"]["banned_keys"],
+            hostname_overrides=data[network]["settings"]["hostname_overrides"],
             hosts=hosts,
         )
     log.debug(f"[load] returning: {networks}")

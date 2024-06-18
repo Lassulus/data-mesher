@@ -56,13 +56,13 @@ async def test_server(
     host1 = Host(
         ip=ipaddress.IPv6Address("::1"),
         port=s1_port,
-        publicKey=key1.verify_key,
+        public_key=key1.verify_key,
         hostnames={"s1": Hostname("s1")},
     )
     network1 = Network(
         tld="test",
         public=True,
-        hostSigningKeys=[key1.verify_key],
+        host_signing_keys=[key1.verify_key],
         hosts={key1.verify_key: host1},
     )
     s1 = spawn_server(
@@ -83,7 +83,7 @@ async def test_server(
     host2 = Host(
         ip=ipaddress.IPv6Address("::1"),
         port=s2_port,
-        publicKey=key2.verify_key,
+        public_key=key2.verify_key,
         hostnames={"s2": Hostname("s2")},
     )
     s2 = spawn_server(
@@ -99,7 +99,8 @@ async def test_server(
     await aiohttp_server(s2, port=s2_port, host="::1")
     await asyncio.sleep(10)
     data_mesher: DataMesher = s2[DATA]
-    assert host1.publicKey in [h.publicKey for h in data_mesher.all_hosts]
-    assert host2.publicKey in [h.publicKey for h in data_mesher.all_hosts]
+    log.debug(f"all hosts: {data_mesher.all_hosts}")
+    assert host1.public_key in [h.public_key for h in data_mesher.all_hosts]
+    assert host2.public_key in [h.public_key for h in data_mesher.all_hosts]
 
     # TODO check of the host2 is in s2 data

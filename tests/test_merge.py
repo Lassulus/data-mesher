@@ -13,32 +13,32 @@ def test_merge() -> None:
     peerA = data_mesher.data.Host(
         ip=IPv6Address("42::1"),
         port=7331,
-        publicKey=a_key.verify_key,
+        public_key=a_key.verify_key,
         hostnames={"a": data_mesher.data.Hostname("a")},
     )
     peerA.update_signature(a_key)
     networkA = data_mesher.data.Network(
-        lastUpdate=datetime.now(),
+        last_update=datetime.now(),
         tld="test",
         public=True,
-        hostSigningKeys=[a_key.verify_key],
-        hosts={peerA.ip: peerA},
+        host_signing_keys=[a_key.verify_key],
+        hosts={peerA.public_key: peerA},
     )
 
     peerB = data_mesher.data.Host(
         ip=IPv6Address("42::2"),
         port=7331,
-        publicKey=b_key.verify_key,
+        public_key=b_key.verify_key,
         hostnames={"b": data_mesher.data.Hostname("b")},
     )
     peerB.update_signature(b_key)
     networkB = data_mesher.data.Network(
-        lastUpdate=datetime.now(),
+        last_update=datetime.now(),
         tld="test",
         public=True,
-        hostSigningKeys=[a_key.verify_key],
-        hosts={peerB.ip: peerB},
+        host_signing_keys=[a_key.verify_key],
+        hosts={peerB.public_key: peerB},
     )
 
     networkA.merge(networkB)
-    networkA.hosts[peerB.ip].verify()
+    networkA.hosts[peerB.public_key].verify()
