@@ -2,6 +2,7 @@ import ipaddress
 import json
 import logging
 import os
+from collections.abc import Iterator
 from datetime import datetime
 from pathlib import Path
 from tempfile import NamedTemporaryFile
@@ -38,7 +39,7 @@ class Hostname:
         return dict(sorted(data.items()))
 
     def __json__(self) -> Hostname_json_type:
-        data: dict[str, str | int] = {}
+        data: dict[str, str | int] = self.data_to_sign()
         if self.signed_at and self.signature:
             data["signature"] = self.signature.decode()
             data["signed_at"] = int(self.signed_at.timestamp())
@@ -331,6 +332,7 @@ def load(data: dict) -> dict[str, Network]:
 class DataMesher:
     networks: dict[str, Network] = {}
     state_file: Path | None
+    dns_file: Path | None
     key: SigningKey | None
     host: Host | None
 
@@ -339,6 +341,7 @@ class DataMesher:
         host: Host | None = None,
         networks: dict[str, Network] = {},
         state_file: Path | None = None,
+        dns_file: Path | None = None,
         key: SigningKey | None = None,
     ) -> None:
         self.state_file = state_file
@@ -348,6 +351,7 @@ class DataMesher:
             except json.JSONDecodeError:
                 data = {}
             self.networks = load(data)
+        self.dns_file = dns_file
         self.networks = self.networks | networks
         for network in self.networks:
             self.networks[network].data_mesher = self
@@ -369,7 +373,16 @@ class DataMesher:
             output[network] = self.networks[network].__json__()
         return output
 
-    def save(self) -> None:  # TODO make atomic
+    def get_hostnames(self) -> Iterator[dict]:
+        for network in self.networks:
+            for host in self.networks[network].hosts:
+                for hostname in self.networks[network].hosts[host].hostnames:
+                    yield {
+                        "hostname": f"{self.networks[network].hosts[host].hostnames[hostname].hostname}.{self.networks[network].tld}",
+                        "ip": str(self.networks[network].hosts[host].ip),
+                    }
+
+    def save(self) -> None:
         if self.state_file is None:
             raise ValueError("No state_file set")
         data: dict[str, dict] = {}  # TODO more types
@@ -377,9 +390,16 @@ class DataMesher:
             data[network] = self.networks[network].__json__()
         self.state_file.parent.mkdir(parents=True, exist_ok=True)
         with NamedTemporaryFile(dir=self.state_file.parent, delete=False) as f:
-            with open(f.name, "w") as file:
+            with open(f.name, "w+") as file:
                 json.dump(data, file)
             os.rename(f.name, str(self.state_file))
+        if self.dns_file:
+            with NamedTemporaryFile(dir=self.dns_file.parent, delete=False) as f:
+                with open(f.name, "w+") as file:
+                    for hostname in self.get_hostnames():
+                        log.debug(f"[save] hostname: {hostname}")
+                        file.write(json.dumps(hostname) + "\n")
+                os.rename(f.name, str(self.dns_file))
 
     @property
     def all_hosts(self) -> list[Host]:

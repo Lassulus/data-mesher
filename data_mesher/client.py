@@ -29,6 +29,7 @@ async def create_client(app: web.Application) -> None:
                             other = DataMesher(networks=load(data))
                             log.debug(f"[client] other data parsed: {other.__json__()}")
                             dm.merge(other)
+                            dm.save()
                             log.debug(f"[client] merged data: {dm.__json__()}")
                         # TODO add to not_seen_bootstrap_peers if timeout or error
                     except client_exceptions.InvalidURL as e:
@@ -52,4 +53,5 @@ async def create_client(app: web.Application) -> None:
                         # log.debug(f"received {data}")
                         other = DataMesher(networks=data)
                         dm.merge(other)
+                        dm.save()
             await asyncio.sleep(5)

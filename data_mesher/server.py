@@ -40,6 +40,7 @@ def create_routes(app: web.Application) -> web.Application:
         log.debug(f"[server] other data parsed: {other.__json__()}")
         dm = app[DATA]
         dm.merge(other)
+        dm.save()
         log.debug(f"[server] merged data: {dm.__json__()}")
         return web.json_response(dm.__json__())
 

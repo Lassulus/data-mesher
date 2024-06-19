@@ -34,6 +34,12 @@ def main() -> None:
         default="./data_mesher.json",
     )
     parser.add_argument(
+        "--dns-file",
+        help="file where the hostnames as json lines are stored",
+        type=Path,
+        default="./data_mesher_dns.json",
+    )
+    parser.add_argument(
         "--ip",
         required=True,
     )
@@ -79,6 +85,7 @@ def main() -> None:
             data_mesher=DataMesher(
                 key=key,
                 state_file=args.state_file,
+                dns_file=args.dns_file,
             ),
             bootstrap_peers=args.bootstrap_peers,
         )

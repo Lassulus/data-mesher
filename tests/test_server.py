@@ -75,6 +75,7 @@ async def test_server(
     print(f"listening on {s1_port}")
     await aiohttp_server(s1, port=s1_port, host="::1")
     state2 = temporary_dir / "state2.json"
+    dns_file2 = temporary_dir / "dns2.json"
     key2 = SigningKey.generate()
     s2_port = unused_tcp_port_factory()
 
@@ -93,6 +94,7 @@ async def test_server(
             host=host2,
             networks={"test": network2},
             state_file=state2,
+            dns_file=dns_file2,
         ),
         bootstrap_peers=[f"http://[::1]:{s1_port}"],
     )
@@ -108,3 +110,6 @@ async def test_server(
     assert host2.public_key.encode() in [
         h.public_key.encode() for h in data_mesher.all_hosts
     ]
+    for host in data_mesher.get_hostnames():
+        log.debug(f"hostnames: {host}")
+    log.debug(f"dns file content: {dns_file2.read_text()}")
