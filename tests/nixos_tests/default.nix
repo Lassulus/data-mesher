@@ -2,6 +2,7 @@
 let
   adminPeer-ip = "538:f40f:1c51:9bd9:9569:d3f6:d0a1:b2df";
   otherPeer-ip = "5b6:6776:fee0:c1f3:db00:b6a8:d013:d38f";
+  data-mesher = pkgs.callPackage ../../default.nix { };
 in
 lib.nixos.runTest {
   hostPkgs = pkgs;
@@ -35,6 +36,7 @@ lib.nixos.runTest {
         ip = adminPeer-ip;
         openFirewall = true;
         log-level = "DEBUG";
+        initNetwork = true;
       };
     };
 
@@ -71,6 +73,10 @@ lib.nixos.runTest {
   };
 
   testScript = ''
+    import time
+    import json
+
+
     start_all()
 
     adminPeer.wait_for_unit("network-online.target")
@@ -81,10 +87,20 @@ lib.nixos.runTest {
     adminPeer.succeed("ping -c5 ${otherPeer-ip}")
     otherPeer.succeed("ping -c5 ${adminPeer-ip}")
 
-    # adminPeer.wait_for_unit("data-mesher.service")
-    # otherPeer.wait_for_unit("data-mesher.service")
-    import time
+    adminPeer.wait_for_unit("data-mesher.service")
+    otherPeer.wait_for_unit("data-mesher.service")
     time.sleep(25)
-    otherPeer.execute("journalctl -u data-mesher.service >&2")
+    json_data = otherPeer.succeed("cat /var/lib/data-mesher/dns")
+    success=False
+    for line in json_data.split("\n"):
+        print(line)
+        try:
+          if "adminPeer" in json.loads(line)["hostname"]:
+              success=True
+              break
+        except:
+          pass
+    assert success, "adminPeer not found in dns file"
+
   '';
 }

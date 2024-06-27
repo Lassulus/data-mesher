@@ -25,7 +25,6 @@
       perSystem = { config, pkgs, self', ... }: {
         packages.data-mesher = pkgs.callPackage ./. { };
         packages.default = config.packages.data-mesher;
-
         devShells.default = self'.packages.default.overrideAttrs (old: {
           nativeBuildInputs = old.nativeBuildInputs ++ [ pkgs.python3Packages.ipython ];
           # propagatedBuildInputs = old.propagatedBuildInputs ++ [ pkgs.python3Packages.ipython ];
@@ -37,6 +36,9 @@
             devShells = lib.mapAttrs' (n: lib.nameValuePair "devShell-${n}") self'.devShells;
           in
           packages // devShells;
+      };
+      flake.nixosModules.data-mesher = {
+        imports = [ ./module.nix ];
       };
     });
 }

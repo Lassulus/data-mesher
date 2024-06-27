@@ -23,7 +23,7 @@ dependencies = [
 Homepage = "https://github.com/lassulus/data-mesher"
 
 [project.scripts]
-data-mesher = "data_mesher:main"
+data-mesher = "data_mesher.cli:main"
 
 [tool.pytest.ini_options]
 testpaths = "tests"

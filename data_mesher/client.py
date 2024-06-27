@@ -40,7 +40,6 @@ async def create_client(app: web.Application) -> None:
                         log.debug(
                             f"[client] connection failed with client connector error: {hostname} error: {e}"
                         )
-                        bootstrap_peers.append(hostname)
 
             for host in dm.all_hosts:
                 log.debug(f"[client] checking if ${host} is up2date")

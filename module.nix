@@ -23,12 +23,19 @@ in
       type = lib.types.str;
       description = "ip address to bind to and used to identify ourself in the network, this can't be 0.0.0.0 or ::";
     };
+    hostnames = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ config.networking.hostName ];
+      defaultText = [ (lib.literalExpression "config.networking.hostName") ];
+      description = "host to bind to";
+    };
     log-level = lib.mkOption {
       type = lib.types.enum [ "DEBUG" "INFO" ];
       default = "INFO";
       description = "Log level";
     };
     openFirewall = lib.mkEnableOption "open port in firewall";
+    initNetwork = lib.mkEnableOption "initialize networks on startup";
   };
   config = lib.mkIf cfg.enable {
     networking.firewall.allowedTCPPorts = lib.mkIf cfg.openFirewall [ cfg.port ];
@@ -38,16 +45,30 @@ in
       after = [ "network.target" ];
       serviceConfig = {
         ExecStart = pkgs.writers.writeBash "data-mesher" ''
+          ${lib.optionalString cfg.initNetwork ''
+            ${cfg.package}/bin/data-mesher \
+              --ip ${cfg.ip} \
+              --port ${toString cfg.port} \
+              --key-file "$STATE_DIRECTORY"/key \
+              --state-file "$STATE_DIRECTORY"/state \
+              --log-level ${cfg.log-level} \
+              create
+          ''}
+
           ${cfg.package}/bin/data-mesher \
             --ip ${cfg.ip} \
             --port ${toString cfg.port} \
             --key-file "$STATE_DIRECTORY"/key \
+            --state-file "$STATE_DIRECTORY"/state \
+            --dns-file "$STATE_DIRECTORY"/dns \
             --log-level ${cfg.log-level} \
+            ${lib.concatMapStringsSep " " (hostname: "--hostname ${hostname}") cfg.hostnames} \
             ${lib.concatMapStringsSep " " (peer: "--bootstrap-peer ${peer}") cfg.bootstrapPeers} \
             server
         '';
         DynamicUser = true;
         StateDirectory = "data-mesher";
+        WorkingDirectory = "/var/lib/data-mesher";
       };
     };
   };
