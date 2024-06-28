@@ -34,6 +34,11 @@ in
       default = "INFO";
       description = "Log level";
     };
+    tld = lib.mkOption {
+      type = lib.types.str;
+      default = config.networking.domain;
+      description = "Top level domain to use for the network";
+    };
     openFirewall = lib.mkEnableOption "open port in firewall";
     initNetwork = lib.mkEnableOption "initialize networks on startup";
   };
@@ -52,6 +57,7 @@ in
               --key-file "$STATE_DIRECTORY"/key \
               --state-file "$STATE_DIRECTORY"/state \
               --log-level ${cfg.log-level} \
+              --tld ${cfg.tld} \
               create
           ''}
 

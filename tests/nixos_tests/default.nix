@@ -37,6 +37,7 @@ lib.nixos.runTest {
         openFirewall = true;
         log-level = "DEBUG";
         initNetwork = true;
+        tld = "test";
       };
     };
 
