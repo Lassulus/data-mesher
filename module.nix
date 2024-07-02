@@ -47,7 +47,7 @@ in
     systemd.services.data-mesher = {
       description = "data-mesher data syncing daemon";
       wantedBy = [ "multi-user.target" ];
-      after = [ "network.target" ];
+      after = [ "network.target" "nsncd.service" ];
       serviceConfig = {
         ExecStart = pkgs.writers.writeBash "data-mesher" ''
           ${lib.optionalString cfg.initNetwork ''
