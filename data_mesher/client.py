@@ -21,7 +21,7 @@ async def create_client(app: web.Application) -> None:
                 for hostname in bootstrap_peers:
                     try:
                         log.debug(f"connecting to bootstrap peer: {hostname}")
-                        async with session.post(
+                        async with session.get(
                             hostname, json=dm.__json__()
                         ) as response:
                             data = await response.json()
@@ -31,6 +31,12 @@ async def create_client(app: web.Application) -> None:
                             dm.merge(other)
                             dm.save()
                             log.debug(f"[client] merged data: {dm.__json__()}")
+                            log.debug(f"[client] DEBUG data: {dm.host}")
+                        async with session.post(
+                            hostname, json=dm.__json__()
+                        ) as response:
+                            data = await response.json()
+                            log.debug(f"[client] received {data}")
                         # TODO add to not_seen_bootstrap_peers if timeout or error
                     except client_exceptions.InvalidURL as e:
                         log.debug(
