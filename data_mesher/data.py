@@ -256,7 +256,7 @@ class Network:
             self.hostname_overrides = other.hostname_overrides
         for host in other.hosts:
             if host in self.hosts:
-                self.hosts[host].merge(other.hosts[host])
+                self._hosts[host].merge(other.hosts[host])
             else:
                 # TODO verify
                 # verifying is a bit complicated because we don't get the public key if the other hosst desn't have it yet
@@ -264,7 +264,7 @@ class Network:
                 #     self.hosts[host] = other.hosts[host]
                 # else:
                 #     log.debug(f"[network merge] invalid signature for host: {host}")
-                self.hosts[host] = other.hosts[host]
+                self._hosts[host] = other.hosts[host]
 
         # TODO decay hosts
 
