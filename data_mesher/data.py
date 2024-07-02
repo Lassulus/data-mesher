@@ -399,9 +399,12 @@ class DataMesher:
         if self.dns_file:
             with NamedTemporaryFile(dir=self.dns_file.parent, delete=False) as f:
                 with open(f.name, "w+") as file:
+                    dns_data = ""
                     for hostname in self.get_hostnames():
                         log.debug(f"[save] hostname: {hostname}")
-                        file.write(json.dumps(hostname) + "\n")
+                        dns_data += json.dumps(hostname) + "\n"
+                    log.debug(f"[save] dns_data: {dns_data}")
+                    file.write(dns_data)
                 os.rename(f.name, str(self.dns_file))
                 log.debug(f"[save] moved {f.name} to {self.dns_file}")
 
