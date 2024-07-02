@@ -90,17 +90,20 @@ lib.nixos.runTest {
 
     adminPeer.wait_for_unit("data-mesher.service")
     otherPeer.wait_for_unit("data-mesher.service")
-    time.sleep(25)
-    json_data = otherPeer.succeed("cat /var/lib/data-mesher/dns")
+    time.sleep(10)
+    json_data_other = otherPeer.succeed("cat /var/lib/data-mesher/dns")
+    json_data_admin = otherPeer.succeed("cat /var/lib/data-mesher/dns")
+    print({
+        "other": json_data_other,
+        "admin": json_data_admin,
+    })
     success=False
-    for line in json_data.split("\n"):
-        print(line)
+    for line in json_data_other.split("\n"):
         try:
-          if "adminPeer" in json.loads(line)["hostname"]:
-              success=True
-              break
+            if "adminPeer" in json.loads(line)["hostname"]:
+                success=True
         except:
-          pass
+            pass
     assert success, "adminPeer not found in dns file"
 
   '';
