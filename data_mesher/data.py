@@ -353,7 +353,9 @@ class DataMesher:
             self.networks = load(data)
         self.dns_file = dns_file
         self.networks = self.networks | networks
+        log.debug(f"[dm init] networks: {self.networks}")
         for network in self.networks:
+            log.debug("[dm init] setting self")
             self.networks[network].data_mesher = self
         self.host = host
         self.key = key
@@ -365,6 +367,7 @@ class DataMesher:
                 self.networks[network].merge(other.networks[network])
             else:
                 self.networks[network] = other.networks[network]
+            self.networks[network].data_mesher = self
         log.debug(f"[dm merge] merged networks: {self.networks}")
 
     def __json__(self) -> dict[str, Network_json_type]:
@@ -400,6 +403,7 @@ class DataMesher:
                         log.debug(f"[save] hostname: {hostname}")
                         file.write(json.dumps(hostname) + "\n")
                 os.rename(f.name, str(self.dns_file))
+                log.debug(f"[save] moved {f.name} to {self.dns_file}")
 
     @property
     def all_hosts(self) -> list[Host]:
