@@ -1,4 +1,9 @@
-{ lib, pkgs, config, ... }:
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 let
   cfg = config.services.data-mesher;
 in
@@ -30,7 +35,10 @@ in
       description = "host to bind to";
     };
     log-level = lib.mkOption {
-      type = lib.types.enum [ "DEBUG" "INFO" ];
+      type = lib.types.enum [
+        "DEBUG"
+        "INFO"
+      ];
       default = "INFO";
       description = "Log level";
     };
@@ -47,7 +55,10 @@ in
     systemd.services.data-mesher = {
       description = "data-mesher data syncing daemon";
       wantedBy = [ "multi-user.target" ];
-      after = [ "network.target" "nsncd.service" ];
+      after = [
+        "network.target"
+        "nsncd.service"
+      ];
       serviceConfig = {
         ExecStart = pkgs.writers.writeBash "data-mesher" ''
           ${lib.optionalString cfg.initNetwork ''

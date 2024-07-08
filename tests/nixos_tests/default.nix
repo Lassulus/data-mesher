@@ -11,66 +11,64 @@ lib.nixos.runTest {
 
   nodes = {
 
-    adminPeer = { ... }: {
-      imports = [
-        ../../module.nix
-      ];
-      virtualisation.vlans = [ 1 ];
-      networking.interfaces.eth1.ipv4.addresses = [{
-        address = "192.168.1.11";
-        prefixLength = 24;
-      }];
-
-      services.mycelium = {
-        enable = true;
-        addHostedPublicNodes = false;
-        openFirewall = true;
-        keyFile = ./adminPeer.key;
-        peers = [
-          "quic://192.168.1.12:9651"
+    adminPeer =
+      { ... }:
+      {
+        imports = [ ../../module.nix ];
+        virtualisation.vlans = [ 1 ];
+        networking.interfaces.eth1.ipv4.addresses = [
+          {
+            address = "192.168.1.11";
+            prefixLength = 24;
+          }
         ];
+
+        services.mycelium = {
+          enable = true;
+          addHostedPublicNodes = false;
+          openFirewall = true;
+          keyFile = ./adminPeer.key;
+          peers = [ "quic://192.168.1.12:9651" ];
+        };
+
+        services.data-mesher = {
+          enable = true;
+          ip = adminPeer-ip;
+          openFirewall = true;
+          log-level = "DEBUG";
+          initNetwork = true;
+          tld = "test";
+        };
       };
 
-      services.data-mesher = {
-        enable = true;
-        ip = adminPeer-ip;
-        openFirewall = true;
-        log-level = "DEBUG";
-        initNetwork = true;
-        tld = "test";
-      };
-    };
-
-    otherPeer = { ... }: {
-      imports = [
-        ../../module.nix
-      ];
-      virtualisation.vlans = [ 1 ];
-      networking.interfaces.eth1.ipv4.addresses = [{
-        address = "192.168.1.12";
-        prefixLength = 24;
-      }];
-
-      services.mycelium = {
-        enable = true;
-        addHostedPublicNodes = false;
-        openFirewall = true;
-        keyFile = ./otherPeer.key;
-        peers = [
-          "quic://192.168.1.11:9651"
+    otherPeer =
+      { ... }:
+      {
+        imports = [ ../../module.nix ];
+        virtualisation.vlans = [ 1 ];
+        networking.interfaces.eth1.ipv4.addresses = [
+          {
+            address = "192.168.1.12";
+            prefixLength = 24;
+          }
         ];
-      };
 
-      services.data-mesher = {
-        enable = true;
-        ip = otherPeer-ip;
-        bootstrapPeers = [
-          "http://[${adminPeer-ip}]:7331"
-        ];
-        openFirewall = true;
-        log-level = "DEBUG";
+        services.mycelium = {
+          enable = true;
+          addHostedPublicNodes = false;
+          openFirewall = true;
+          keyFile = ./otherPeer.key;
+          peers = [ "quic://192.168.1.11:9651" ];
+        };
+
+        services.data-mesher = {
+          enable = true;
+          ip = otherPeer-ip;
+          bootstrapPeers = [ "http://[${adminPeer-ip}]:7331" ];
+          openFirewall = true;
+          log-level = "DEBUG";
+        };
       };
-    };
   };
 
   testScript = ''

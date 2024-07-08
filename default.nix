@@ -1,4 +1,5 @@
-{ pkgs ? import <nixpkgs> { }
+{
+  pkgs ? import <nixpkgs> { },
 }:
 let
   aiohttp = pkgs.python3.pkgs.aiohttp.overrideAttrs (old: {
@@ -9,9 +10,7 @@ let
       rev = "98eec45100822cc1092b7ea1fc9f734912cd2c82";
       sha256 = "sha256-eiYN1eBgKh/nysoKZrm3wXnJDIkA7uaXIokaj8IyQl4=";
     };
-    propagatedBuildInputs = old.propagatedBuildInputs ++ [
-      pkgs.python3.pkgs.aiohappyeyeballs
-    ];
+    propagatedBuildInputs = old.propagatedBuildInputs ++ [ pkgs.python3.pkgs.aiohappyeyeballs ];
   });
 in
 pkgs.python3.pkgs.buildPythonApplication {
