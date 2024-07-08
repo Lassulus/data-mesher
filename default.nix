@@ -2,12 +2,12 @@
 }:
 let
   aiohttp = pkgs.python3.pkgs.aiohttp.overrideAttrs (old: {
-    name = "aiohttp-master_2024-05-07";
+    name = "aiohttp-unstable-2024-06-06";
     src = pkgs.fetchFromGitHub {
       owner = "aio-libs";
       repo = "aiohttp";
-      rev = "2eccb8b47ff7c77596955071cfb4dbbd5dfe63d5";
-      sha256 = "sha256-3/dDUiC9+2zvzP0VTZAEmZwjDXBHeOEqyMXL8BW9we0=";
+      rev = "98eec45100822cc1092b7ea1fc9f734912cd2c82";
+      sha256 = "sha256-eiYN1eBgKh/nysoKZrm3wXnJDIkA7uaXIokaj8IyQl4=";
     };
     propagatedBuildInputs = old.propagatedBuildInputs ++ [
       pkgs.python3.pkgs.aiohappyeyeballs
