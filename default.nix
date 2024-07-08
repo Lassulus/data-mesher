@@ -1,7 +1,7 @@
 { pkgs ? import <nixpkgs> { }
 }:
 let
-  aiohttp = pkgs.python3Packages.aiohttp.overrideAttrs (old: {
+  aiohttp = pkgs.python3.pkgs.aiohttp.overrideAttrs (old: {
     name = "aiohttp-master_2024-05-07";
     src = pkgs.fetchFromGitHub {
       owner = "aio-libs";
@@ -10,7 +10,7 @@ let
       sha256 = "sha256-3/dDUiC9+2zvzP0VTZAEmZwjDXBHeOEqyMXL8BW9we0=";
     };
     propagatedBuildInputs = old.propagatedBuildInputs ++ [
-      pkgs.python3Packages.aiohappyeyeballs
+      pkgs.python3.pkgs.aiohappyeyeballs
     ];
   });
 in
@@ -24,10 +24,10 @@ pkgs.python3.pkgs.buildPythonApplication {
     aiohttp
     pkgs.python3Packages.pynacl
   ];
-  nativeBuildInputs = [ pkgs.python311.pkgs.setuptools ];
+  nativeBuildInputs = [ pkgs.python3.pkgs.setuptools ];
   nativeCheckInputs = [
-    pkgs.python311.pkgs.pytest
-    pkgs.python311.pkgs.pytest-asyncio
+    pkgs.python3.pkgs.pytest
+    pkgs.python3.pkgs.pytest-asyncio
   ];
   checkPhase = ''
     PYTHONPATH= $out/bin/data-mesher --help
