@@ -6,7 +6,7 @@
   perSystem = { pkgs, ... }: {
     treefmt = {
       # Used to find the project root
-      projectRootFile = "flake.lock";
+      projectRootFile = ".git/config";
 
       programs.prettier.enable = true;
       programs.mypy.enable = true;
