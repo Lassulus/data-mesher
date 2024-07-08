@@ -1,4 +1,4 @@
-{ lib, inputs, ... }:
+{ inputs, ... }:
 {
   imports = [ inputs.treefmt-nix.flakeModule ];
 
@@ -15,20 +15,8 @@
         programs.nixfmt.package = pkgs.nixfmt-rfc-style;
         programs.deadnix.enable = true;
 
-        settings.formatter = {
-          python = {
-            command = "sh";
-            options = [
-              "-eucx"
-              ''
-                ${lib.getExe pkgs.ruff} check --fix "$@"
-                ${lib.getExe pkgs.ruff} format "$@"
-              ''
-              "--" # this argument is ignored by bash
-            ];
-            includes = [ "*.py" ];
-          };
-        };
+        programs.ruff.check = true;
+        programs.ruff.format = true;
       };
     };
 }
